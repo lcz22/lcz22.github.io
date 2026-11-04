@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0a09">
+  <meta name="description" content="人生支线：一个收集偏航、绕路与意外相遇的个人影像档案。点击照片，回到它发生的那一天。">
+  <title>人生支线 · SIDE QUESTS</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="assets/fonts/noto-serif-sc-subset.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <canvas id="sparkCanvas" class="spark-canvas" aria-hidden="true"></canvas>
+  <div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
+
+  <div class="intro" id="intro" aria-hidden="true">
+    <div class="intro__star">
+      <svg viewBox="0 0 60 60" fill="none"><path d="M30 2v56M2 30h56M10.2 10.2l39.6 39.6M49.8 10.2 10.2 49.8" stroke="currentColor" stroke-width="1"/><circle cx="30" cy="30" r="7" stroke="currentColor"/></svg>
+    </div>
+    <div class="intro__line"><span></span></div>
+    <p class="intro__text">正在展开支线 <span id="introCount">16</span></p>
+  </div>
+
+  <header class="site-header" id="siteHeader">
+    <a class="brand" href="#top" aria-label="人生支线首页">
+      <span class="brand__mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none"><path d="M16 1v30M1 16h30M5.4 5.4l21.2 21.2M26.6 5.4 5.4 26.6" stroke="currentColor"/><circle cx="16" cy="16" r="4.4" stroke="currentColor"/></svg>
+      </span>
+      <span class="brand__text">
+        <strong>人生支线</strong>
+        <small>SIDE QUESTS / VOL. 01</small>
+      </span>
+    </a>
+
+    <div class="header__right">
+      <nav class="header__nav" aria-label="主导航">
+        <a href="#index">支线索引</a>
+        <a href="#manifesto">关于这里</a>
+      </nav>
+      <button class="btn-ghost js-open-upload" type="button">
+        <span class="btn-ghost__plus" aria-hidden="true">+</span>
+        留下一条支线
+      </button>
+      <button class="menu-button" id="menuButton" type="button" aria-label="打开菜单" aria-expanded="false">
+        <span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <div class="mobile-menu" id="mobileMenu" aria-hidden="true">
+    <a href="#index">支线索引 <span>01</span></a>
+    <a href="#manifesto">关于这里 <span>02</span></a>
+    <button class="js-open-upload" type="button">留下一条支线 <span>↗</span></button>
+    <p>点击背景中的照片，进入某一天。</p>
+  </div>
+
+  <noscript>
+    <p class="no-script">这个档案需要 JavaScript 才能展开图片、评分与上传。请在浏览器中启用 JavaScript 后刷新。</p>
+  </noscript>
+
+  <main id="top">
+    <section class="hero" id="hero" aria-label="人生支线档案封面">
+      <div class="grid-motion" id="gridMotion" aria-hidden="true">
+        <div class="gm-plane" id="gmPlane"></div>
+      </div>
+      <div class="hero__wash" aria-hidden="true"></div>
+      <div class="hero__spot" id="heroSpot" aria-hidden="true"></div>
+
+      <div class="hero__content">
+        <p class="eyebrow hero__eyebrow">
+          <span class="eyebrow__line"></span>
+          EVERY DETOUR HAS A STORY
+          <span class="eyebrow__dot"></span>
+          2019—2026
+        </p>
+
+        <div class="hero__title-wrap">
+          <h1 class="hero__title" aria-label="人生支线">
+            <span class="hero__title-line" aria-hidden="true"><span class="char">人</span><span class="char">生</span><span class="hero__title-asterisk">✳</span></span>
+            <span class="hero__title-line hero__title-line--second" aria-hidden="true"><span class="char">支</span><span class="char">线</span><span class="hero__title-en">SIDE<br>QUESTS</span></span>
+          </h1>
+        </div>
+
+        <p class="hero__lede">
+          我没有活成一条直线。<br>
+          于是把这些偏航，收进了这里。
+        </p>
+
+        <div class="hero__actions">
+          <a class="btn-primary" href="#index">
+            <span>随便走走</span>
+            <span class="btn-primary__arrow" aria-hidden="true">
+              <svg viewBox="0 0 18 18" fill="none"><path d="M4 14 14 4M6 4h8v8" stroke="currentColor" stroke-width="1.4"/></svg>
+            </span>
+          </a>
+          <button class="btn-text js-open-upload" type="button">
+            或，留下一段你的支线
+            <span aria-hidden="true">↗</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="sling-wrap">
+        <svg class="orbit-text" viewBox="0 0 200 200" aria-hidden="true">
+          <defs>
+            <path id="orbitPath" d="M100,100 m-78,0 a78,78 0 1,1 156,0 a78,78 0 1,1 -156,0"></path>
+          </defs>
+          <text>
+            <textPath href="#orbitPath" startOffset="0%">PULL · RELEASE · LEAVE A TRACE · PULL · RELEASE · LEAVE A TRACE · </textPath>
+          </text>
+        </svg>
+
+        <div class="sling" id="sling">
+          <svg class="sling__fx" viewBox="-80 -80 160 160" aria-hidden="true">
+            <circle class="sling__well" cx="0" cy="0" r="43"></circle>
+            <path class="sling__band" id="slingBandA" d=""></path>
+            <path class="sling__band sling__band--hot" id="slingBandB" d=""></path>
+            <circle class="sling__arc" id="slingArc" cx="0" cy="0" r="48" pathLength="1"></circle>
+          </svg>
+          <button class="sling__pad" id="slingPad" type="button" aria-label="上传一条支线：点击或向外拖拽后松开">
+            <span class="sling__pad-face">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </button>
+          <span class="sling__tip">拖拽 / 点击</span>
+        </div>
+      </div>
+
+      <div class="hero__footer">
+        <div class="hero__meta">
+          <span class="meta-label">THE ARCHIVE</span>
+          <strong><span id="heroCount">16</span> 条人生支线</strong>
+          <p>点击背景里的任意一张照片<br>进入它发生的那一天。</p>
+        </div>
+
+        <a class="hero__scroll" href="#index" aria-label="向下浏览支线索引">
+          <span>SCROLL TO WANDER</span>
+          <i aria-hidden="true"><svg viewBox="0 0 12 32" fill="none"><path d="M6 1v28M1 24l5 5 5-5" stroke="currentColor"/></svg></i>
+        </a>
+
+        <div class="hero__coords">
+          <span>31°14′N · 121°29′E</span>
+          <span>LAST UPDATE / 2026.11.04</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="index-section" id="index">
+      <div class="section-shell">
+        <header class="section-head">
+          <div class="section-kicker reveal">
+            <span class="section-kicker__no">01</span>
+            <span>THE INDEX</span>
+            <span class="section-kicker__line"></span>
+          </div>
+
+          <div class="section-head__main reveal" data-delay="80">
+            <h2>支线索引<span class="section-head__count" id="indexCount">（16）</span></h2>
+            <p>每一张照片，都是一次没有写进行程的转弯。<br>点击进入，替路过的人给它一个分数。</p>
+          </div>
+        </header>
+
+        <div class="filter-bar reveal" data-delay="140">
+          <div class="filters" id="filters" role="group" aria-label="按类型筛选支线">
+            <button class="filter is-active" type="button" data-filter="all">全部 <span>16</span></button>
+            <button class="filter" type="button" data-filter="远方">远方 <span>8</span></button>
+            <button class="filter" type="button" data-filter="日常">日常 <span>4</span></button>
+            <button class="filter" type="button" data-filter="相遇">相遇 <span>1</span></button>
+            <button class="filter" type="button" data-filter="深夜">深夜 <span>3</span></button>
+          </div>
+          <p class="filter-note">按拍摄时间归档 <span>/</span> 2023—2026</p>
+        </div>
+
+        <div class="gallery" id="gallery" aria-live="polite"></div>
+
+        <div class="gallery-empty" id="galleryEmpty" hidden>
+          <span class="gallery-empty__star" aria-hidden="true">✳</span>
+          <h3>这一条路上暂时没有风景。</h3>
+          <p>换一个分类看看，或者留下你自己的那一条。</p>
+          <button class="btn-line js-open-upload" type="button">上传一张照片 <span>↗</span></button>
+        </div>
+      </div>
+    </section>
+
+    <div class="marquee" aria-hidden="true">
+      <div class="marquee__track">
+        <span>DON'T GO STRAIGHT <i>✳</i> 别走直线 <i>✳</i> TAKE THE LONG WAY HOME <i>✳</i> 绕一点路 <i>✳</i></span>
+        <span>DON'T GO STRAIGHT <i>✳</i> 别走直线 <i>✳</i> TAKE THE LONG WAY HOME <i>✳</i> 绕一点路 <i>✳</i></span>
+      </div>
+    </div>
+
+    <section class="manifesto" id="manifesto">
+      <div class="section-shell">
+        <div class="section-kicker reveal">
+          <span class="section-kicker__no">02</span>
+          <span>WHY THIS EXISTS</span>
+          <span class="section-kicker__line"></span>
+        </div>
+
+        <div class="manifesto__grid">
+          <div class="manifesto__head reveal">
+            <span class="manifesto__orbit" aria-hidden="true">
+              <svg viewBox="0 0 120 120" fill="none"><circle cx="60" cy="60" r="57" stroke="currentColor" stroke-dasharray="2 7"/><circle cx="60" cy="60" r="38" stroke="currentColor" stroke-opacity=".35"/><path d="M60 36v48M36 60h48" stroke="currentColor"/></svg>
+            </span>
+            <h2>地图上没有的路，<br><em>才算我的。</em></h2>
+            <p class="manifesto__en">NOT A STRAIGHT LINE.</p>
+          </div>
+
+          <div class="manifesto__body reveal" data-delay="120">
+            <p class="manifesto__lead">我们总被问“以后要做什么”，却很少被问“昨天在哪里多停留了一会儿”。</p>
+            <p>这个档案不记录履历，只收集那些没有目的地的时刻：走错的路、临时改签的车、没有加微信的人、以及一场来不及拍照的日落。</p>
+            <p>如果主线是必须抵达的地方，支线就是允许自己绕路的证据。</p>
+
+            <div class="manifesto__stats" id="stats">
+              <div class="stat">
+                <strong><span class="count-up" data-count="16" id="statQuests">16</span></strong>
+                <span>条支线</span>
+              </div>
+              <div class="stat">
+                <strong><span class="count-up" data-count="4.7" data-decimals="1" id="statRating">4.7</span><small>/5</small></strong>
+                <span>路人的平均分</span>
+              </div>
+              <div class="stat">
+                <strong>∞</strong>
+                <span>还没走的路</span>
+              </div>
+            </div>
+
+            <button class="btn-line js-open-upload" type="button">
+              把你的支线放进档案
+              <span aria-hidden="true">↗</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <p class="manifesto__ghost" aria-hidden="true">WANDER</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="section-shell">
+      <div class="footer__cta reveal">
+        <p>你的下一段支线，<br>会从哪里开始？</p>
+        <button class="footer__upload js-open-upload" type="button" aria-label="上传一条支线">
+          <span>上传一条支线</span>
+          <i aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none"><path d="M7 25 25 7M11 7h14v14" stroke="currentColor" stroke-width="1.2"/></svg>
+          </i>
+        </button>
+      </div>
+
+      <div class="footer__word" aria-hidden="true">KEEP<br>WANDERING.</div>
+
+      <div class="footer__bottom">
+        <div class="footer__brand">
+          <span class="brand__mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none"><path d="M16 1v30M1 16h30M5.4 5.4l21.2 21.2M26.6 5.4 5.4 26.6" stroke="currentColor"/><circle cx="16" cy="16" r="4.4" stroke="currentColor"/></svg>
+          </span>
+          <span>人生支线 · SIDE QUESTS<br><small>一个关于偏航的个人影像档案</small></span>
+        </div>
+
+        <div class="footer__actions">
+          <button class="footer__link" id="resetRatings" type="button">清除我的评分</button>
+          <button class="footer__link" id="restoreHidden" type="button" hidden>恢复隐藏的支线 <span id="hiddenCount">0</span></button>
+          <button class="footer__link js-open-upload" type="button">留一条支线</button>
+        </div>
+
+        <p class="footer__fine">照片与文字仅作个人记录 · 评分保存在本地浏览器<br>© 2026 SIDE QUEST ARCHIVE</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- 单图详情 -->
+  <div class="detail-layer" id="detailLayer" aria-hidden="true">
+    <div class="detail-scrim" data-close-detail></div>
+    <article class="detail-panel" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+      <header class="detail-head">
+        <div class="detail-head__index">
+          <span class="meta-label">SIDE QUEST</span>
+          <strong id="detailIndex">01 / 16</strong>
+        </div>
+        <div class="detail-head__middle" id="detailCategory">远方</div>
+        <button class="round-close" id="detailClose" type="button" aria-label="关闭详情">
+          <span></span><span></span>
+        </button>
+      </header>
+
+      <div class="detail-grid">
+        <figure class="detail-visual">
+          <div class="reflective-card" id="reflectiveCard">
+            <div class="reflective-card__body" id="reflectiveBody">
+              <img class="reflective-card__photo" id="detailImage" src="" alt="">
+              <span class="reflective-card__brush" aria-hidden="true"></span>
+              <span class="reflective-card__vignette" aria-hidden="true"></span>
+              <span class="reflective-card__glare" aria-hidden="true"></span>
+              <span class="reflective-card__sheen" aria-hidden="true"></span>
+              <span class="reflective-card__rim" aria-hidden="true"></span>
+              <div class="detail-visual__stamp">
+                <span>CAPTURED</span>
+                <strong id="detailStampDate">2025.10.02</strong>
+                <span id="detailStampPlace">FUJIAN · PINGTAN</span>
+              </div>
+              <div class="detail-visual__corner" aria-hidden="true">
+                <svg viewBox="0 0 40 40" fill="none"><path d="M1 39V1h38" stroke="currentColor"/></svg>
+              </div>
+            </div>
+          </div>
+        </figure>
+
+        <div class="detail-content" id="detailContent">
+          <div class="detail-scroll">
+            <div class="detail-meta">
+              <span id="detailDate">2025.10.02</span>
+              <span class="detail-meta__dot"></span>
+              <span id="detailTime">17:42</span>
+              <span class="detail-meta__dot" id="detailTimeDot"></span>
+              <span id="detailPlace">福建 · 平潭岛</span>
+              <span class="detail-meta__mine" id="detailMine" hidden>你的支线</span>
+            </div>
+
+            <h2 class="detail-title" id="detailTitle">把日落看完</h2>
+
+            <div class="detail-feeling">
+              <p class="detail-label">当下的感受 <span>/ THE FEELING</span></p>
+              <blockquote id="detailFeeling"></blockquote>
+            </div>
+
+            <div class="rating-card" id="ratingCard">
+              <div class="rating-card__head">
+                <div class="rating-score">
+                  <strong id="ratingAverage">4.8</strong>
+                  <span>/ 5</span>
+                </div>
+                <div class="rating-summary">
+                  <div class="rating-summary__stars" id="ratingBars" aria-hidden="true"></div>
+                  <p><span id="ratingCount">136</span> 位路人留下评分</p>
+                </div>
+              </div>
+
+              <div class="rating-divider"></div>
+
+              <div class="rate-action">
+                <div class="rate-action__copy">
+                  <p>你会为这条支线打几分？</p>
+                  <span>把星星拉到你的答案上，然后松手。</span>
+                </div>
+                <div class="peek-rating" id="peekRating" role="radiogroup" aria-label="为这条支线打分"></div>
+              </div>
+              <p class="rating-note" id="ratingNote" aria-live="polite">点击星星即可评分，再点一次可以收回。</p>
+            </div>
+
+            <div class="detail-note">
+              <p class="detail-label">支线注脚 <span>/ A NOTE</span></p>
+              <p class="detail-note__text" id="detailNote">有些路走错，是为了刚好赶上。</p>
+            </div>
+
+            <nav class="detail-pager" aria-label="浏览相邻支线">
+              <button class="detail-pager__button" id="detailPrev" type="button">
+                <span class="detail-pager__arrow" aria-hidden="true">←</span>
+                <span class="detail-pager__copy">
+                  <small>PREVIOUS</small>
+                  <strong id="detailPrevTitle">上一条</strong>
+                </span>
+              </button>
+              <span class="detail-pager__line" aria-hidden="true"></span>
+              <button class="detail-pager__button detail-pager__button--next" id="detailNext" type="button">
+                <span class="detail-pager__copy">
+                  <small>NEXT</small>
+                  <strong id="detailNextTitle">下一条</strong>
+                </span>
+                <span class="detail-pager__arrow" aria-hidden="true">→</span>
+              </button>
+            </nav>
+
+            <footer class="detail-foot">
+              <button class="share-button" id="shareButton" type="button">
+                <svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M6.5 11.5 11.5 6.5M7 4h7v7" stroke="currentColor"/><path d="M13 11v3H4V5h3" stroke="currentColor"/></svg>
+                复制这条支线的位置
+              </button>
+
+              <button class="hold-delete" id="holdDelete" type="button" aria-describedby="holdHint">
+                <span class="hold-delete__fill" aria-hidden="true"></span>
+                <span class="hold-delete__label">
+                  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.5 7v4M9.5 7v4" stroke="currentColor" stroke-linecap="round"/></svg>
+                  <span id="holdDeleteText">按住 2 秒 · 从档案中隐藏</span>
+                </span>
+                <span class="hold-delete__done">已从档案中移除</span>
+              </button>
+              <span class="sr-only" id="holdHint">按住鼠标或手指两秒，确认移除此支线。此操作只影响当前浏览器。</span>
+            </footer>
+          </div>
+        </div>
+      </div>
+    </article>
+  </div>
+
+  <!-- 上传 -->
+  <div class="upload-layer" id="uploadLayer" aria-hidden="true">
+    <div class="upload-scrim" data-close-upload></div>
+    <section class="upload-panel" role="dialog" aria-modal="true" aria-labelledby="uploadTitle">
+      <header class="upload-head">
+        <div>
+          <p class="upload-kicker">ADD A SIDE QUEST <span id="uploadNo">/ 017</span></p>
+          <h2 id="uploadTitle">留下一段支线</h2>
+        </div>
+        <button class="round-close" id="uploadClose" type="button" aria-label="关闭上传窗口">
+          <span></span><span></span>
+        </button>
+      </header>
+
+      <form class="upload-form" id="uploadForm" novalidate>
+        <div class="upload-layout">
+          <div class="upload-media">
+            <label class="dropzone" id="dropzone" for="fileInput" tabindex="0">
+              <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/bmp" hidden>
+
+              <div class="dropzone__empty" id="dropEmpty">
+                <span class="dropzone__plus" aria-hidden="true">+</span>
+                <strong>把照片拖进来</strong>
+                <p>或点击选择 · JPG / PNG / WEBP / GIF<br>单张不超过 20MB</p>
+                <span class="dropzone__hint">一张照片，就是一条支线的入口</span>
+              </div>
+
+              <div class="dropzone__preview" id="dropPreview" hidden>
+                <img id="previewImg" alt="待上传照片预览">
+                <div class="dropzone__preview-bar">
+                  <span id="fileName">photo.jpg</span>
+                  <span id="fileMeta">0 MB</span>
+                </div>
+                <button class="dropzone__replace" id="replaceFile" type="button">换一张</button>
+              </div>
+
+              <span class="dropzone__corners" aria-hidden="true"></span>
+            </label>
+
+            <p class="upload-tip">
+              <span aria-hidden="true">✳</span>
+              照片只会在你的浏览器里压缩并保存，不会上传到云端。
+            </p>
+          </div>
+
+          <div class="upload-fields">
+            <label class="field" for="fieldTitle">
+              <span class="field__label">这一条支线叫 <em>必填</em></span>
+              <input id="fieldTitle" name="title" type="text" maxlength="32" placeholder="例如：在便利店等到天亮" autocomplete="off">
+              <span class="field__error">给它一个名字，才算真正发生。</span>
+            </label>
+
+            <div class="field field--date">
+              <span class="field__label">拍摄日期</span>
+              <input id="fieldDate" name="date" type="hidden" value="">
+              <div class="date-glide" id="dateGlide">
+                <div class="glide-select glide-select--date" id="dateYear"></div>
+                <div class="glide-select glide-select--date" id="dateMonth"></div>
+                <div class="glide-select glide-select--date" id="dateDay"></div>
+              </div>
+            </div>
+
+            <div class="field-row field-row--two">
+              <label class="field" for="fieldTime">
+                <span class="field__label">拍摄时间</span>
+                <input id="fieldTime" name="time" type="time">
+              </label>
+
+              <div class="field">
+                <span class="field__label">收进哪一栏</span>
+                <input id="fieldCategory" name="category" type="hidden" value="远方">
+                <div class="glide-select" id="categoryGlide"></div>
+              </div>
+            </div>
+
+            <label class="field" for="fieldPlace">
+              <span class="field__label">拍摄地点</span>
+              <input id="fieldPlace" name="place" type="text" maxlength="40" placeholder="城市 · 具体一点的地方" autocomplete="off">
+            </label>
+
+            <label class="field" for="fieldFeeling">
+              <span class="field__label">当下的感受 <em>写几句</em></span>
+              <textarea id="fieldFeeling" name="feeling" rows="4" maxlength="220" placeholder="那一刻你在想什么？后来又是怎么想起它的？"></textarea>
+              <span class="field__count"><span id="feelingCount">0</span> / 220</span>
+            </label>
+
+            <div class="upload-submit">
+              <button class="publish-button" id="publishButton" type="submit">
+                <span class="publish-button__label">发射这条支线</span>
+                <span class="publish-button__icon" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none"><path d="M3 10h13M11 5l5 5-5 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </span>
+              </button>
+              <p class="upload-submit__note">发布后会立刻出现在背景与索引里。</p>
+            </div>
+          </div>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <span class="toast__dot" aria-hidden="true"></span>
+    <span id="toastText">已保存</span>
+    <button class="toast__action" id="toastAction" type="button" hidden>撤销</button>
+  </div>
+
+  <template id="cardTemplate">
+    <article class="quest-card">
+      <button class="quest-card__button" type="button">
+        <div class="quest-card__media">
+          <img alt="" loading="lazy" decoding="async">
+          <div class="quest-card__glare" aria-hidden="true"></div>
+          <div class="quest-card__top">
+            <span class="quest-card__cat"></span>
+            <span class="quest-card__no"></span>
+          </div>
+          <span class="quest-card__open">
+            <span>打开这条支线</span>
+            <i aria-hidden="true">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M4 12 12 4M5.5 4H12v6.5" stroke="currentColor"/></svg>
+            </i>
+          </span>
+          <span class="quest-card__mine" hidden>你的支线</span>
+        </div>
+        <div class="quest-card__body">
+          <div class="quest-card__title-row">
+            <h3></h3>
+            <span class="quest-card__score"><span class="star" aria-hidden="true">★</span><span class="quest-card__score-num"></span></span>
+          </div>
+          <p class="quest-card__meta"><span class="quest-card__date"></span><span class="quest-card__dot"></span><span class="quest-card__place"></span></p>
+        </div>
+      </button>
+    </article>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>

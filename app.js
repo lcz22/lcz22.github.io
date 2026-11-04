@@ -1,0 +1,2869 @@
+/* =========================================================
+   人生支线 · SIDE QUESTS
+   Vanilla JS — grid motion, detail, ratings, hold-to-delete, upload
+   ========================================================= */
+
+'use strict';
+
+/* ---------------------------------------------------------
+   01. Preset archive
+   --------------------------------------------------------- */
+
+const PRESETS = [
+  {
+    id: 'q01',
+    title: '把日落看完',
+    date: '2025.10.02',
+    iso: '2025-10-02',
+    time: '17:42',
+    place: '福建 · 平潭岛',
+    stamp: 'FUJIAN · PINGTAN',
+    category: '远方',
+    image: 'assets/photos/sea.jpg',
+    feeling: '本来要去另一个沙滩，导航错了一个路口，索性沿着海堤一直走。太阳掉下去的那十分钟，谁都没有讲话。那天我明白，有些路走错，是为了刚好赶上。',
+    baseScore: 4.8,
+    baseVotes: 136
+  },
+  {
+    id: 'q02',
+    title: '湖心没有信号',
+    date: '2024.09.18',
+    iso: '2024-09-18',
+    time: '11:20',
+    place: '意大利 · 布拉耶斯湖',
+    stamp: 'DOLOMITES · LAGO DI BRAIES',
+    category: '远方',
+    image: 'assets/photos/mountain.jpg',
+    feeling: '船桨划破水面的声音，比任何消息提示都好听。把手机关掉的两个小时里，我只负责把这艘船划回岸边。',
+    baseScore: 4.9,
+    baseVotes: 208
+  },
+  {
+    id: 'q03',
+    title: '被低音炮击中的夜晚',
+    date: '2023.08.12',
+    iso: '2023-08-12',
+    time: '22:05',
+    place: '上海 · 育音堂',
+    stamp: 'SHANGHAI · YUYINTANG',
+    category: '深夜',
+    image: 'assets/photos/concert.jpg',
+    feeling: '挤在人群最后一排，看不清乐手，只看见无数举起的手。鼓点落下来的时候，胸口比耳朵先听见。',
+    baseScore: 4.6,
+    baseVotes: 92
+  },
+  {
+    id: 'q04',
+    title: '第四杯手冲之后',
+    date: '2025.03.09',
+    iso: '2025-03-09',
+    time: '15:36',
+    place: '杭州 · 小河直街',
+    stamp: 'HANGZHOU · XIAOHE',
+    category: '日常',
+    image: 'assets/photos/cafe.jpg',
+    feeling: '本来只是躲雨。老板请我喝了第四杯，说豆子再放就可惜了。我们聊到雨停，谁也没加微信。',
+    baseScore: 4.4,
+    baseVotes: 57
+  },
+  {
+    id: 'q05',
+    title: '凌晨两点的便利店',
+    date: '2025.11.23',
+    iso: '2025-11-23',
+    time: '02:17',
+    place: '东京 · 涩谷',
+    stamp: 'TOKYO · SHIBUYA',
+    category: '深夜',
+    image: 'assets/photos/city.jpg',
+    feeling: '错过末班车，在便利店门口吃完一碗关东煮。城市没有睡，只是换了一批人醒着。',
+    baseScore: 4.7,
+    baseVotes: 165
+  },
+  {
+    id: 'q06',
+    title: '雪落下来的时候',
+    date: '2024.01.07',
+    iso: '2024-01-07',
+    time: '09:10',
+    place: '北海道 · 美瑛',
+    stamp: 'HOKKAIDO · BIEI',
+    category: '远方',
+    image: 'assets/photos/snow.jpg',
+    feeling: '整个世界被按了静音。雪落在睫毛上，我站在那里，第一次觉得冷也可以是一种温柔。',
+    baseScore: 4.9,
+    baseVotes: 244
+  },
+  {
+    id: 'q07',
+    title: '没有信号的 36 小时',
+    date: '2023.07.21',
+    iso: '2023-07-21',
+    time: '06:40',
+    place: '青海 · 青海湖',
+    stamp: 'QINGHAI · QINGHAI LAKE',
+    category: '远方',
+    image: 'assets/photos/camp.jpg',
+    feeling: '帐篷外是牛铃声和风。没有信号的两天，我重新学会了等待——等水开，等云散，等天黑。',
+    baseScore: 4.8,
+    baseVotes: 188
+  },
+  {
+    id: 'q08',
+    title: '沿着江边骑到没力气',
+    date: '2026.06.15',
+    iso: '2026-06-15',
+    time: '18:25',
+    place: '武汉 · 东湖',
+    stamp: 'WUHAN · EAST LAKE',
+    category: '日常',
+    image: 'assets/photos/bike.jpg',
+    feeling: '没有目的地，也没有记录里程。风从耳边过去的时候，我突然不想成为任何人，只想继续骑。',
+    baseScore: 4.2,
+    baseVotes: 48
+  },
+  {
+    id: 'q09',
+    title: '在旧书店躲了一场雨',
+    date: '2024.11.02',
+    iso: '2024-11-02',
+    time: '16:05',
+    place: '南京 · 先锋书店',
+    stamp: 'NANJING · LIBRAIRIE AVANT-GARDE',
+    category: '日常',
+    image: 'assets/photos/books.jpg',
+    feeling: '随手抽出一本旧书，扉页上有人写：1998 年，愿你自由。我把书买了下来，像接手一个陌生人的愿望。',
+    baseScore: 4.5,
+    baseVotes: 73
+  },
+  {
+    id: 'q10',
+    title: '有人把蛋糕抹在我脸上',
+    date: '2025.09.14',
+    iso: '2025-09-14',
+    time: '21:48',
+    place: '成都 · 玉林路',
+    stamp: 'CHENGDU · YULIN',
+    category: '相遇',
+    image: 'assets/photos/friends.jpg',
+    feeling: '二十五岁生日，没订到想去的餐厅，最后在路边摊吃串。朋友把奶油抹在我脸上，我笑得像个傻子。',
+    baseScore: 4.9,
+    baseVotes: 201
+  },
+  {
+    id: 'q11',
+    title: '风把公路吹成了直线',
+    date: '2023.05.03',
+    iso: '2023-05-03',
+    time: '17:30',
+    place: '甘肃 · 敦煌',
+    stamp: 'GANSU · DUNHUANG',
+    category: '远方',
+    image: 'assets/photos/desert.jpg',
+    feeling: '戈壁没有参照物，方向盘握了很久也不觉得在前进。后来看见落日，才知道我们已经开了很远。',
+    baseScore: 4.6,
+    baseVotes: 97
+  },
+  {
+    id: 'q12',
+    title: '船到湖心，天开始蓝',
+    date: '2025.07.27',
+    iso: '2025-07-27',
+    time: '10:15',
+    place: '奥地利 · 哈尔施塔特',
+    stamp: 'AUSTRIA · HALLSTATT',
+    category: '远方',
+    image: 'assets/photos/lake.jpg',
+    feeling: '清晨的湖面像一块没有擦干的玻璃。船夫说这里最美的时候是冬天，我决定下次再来验证。',
+    baseScore: 4.7,
+    baseVotes: 154
+  },
+  {
+    id: 'q13',
+    title: '火车开进春天',
+    date: '2025.04.05',
+    iso: '2025-04-05',
+    time: '08:52',
+    place: '江西 · 婺源',
+    stamp: 'JIANGXI · WUYUAN',
+    category: '远方',
+    image: 'assets/photos/train.jpg',
+    feeling: '为了看油菜花，买了最慢的一班车。窗外每三分钟换一幅画，邻座阿姨分给我一个茶叶蛋。',
+    baseScore: 4.5,
+    baseVotes: 88
+  },
+  {
+    id: 'q14',
+    title: '第一次看见银河',
+    date: '2023.08.20',
+    iso: '2023-08-20',
+    time: '23:30',
+    place: '内蒙古 · 乌兰哈达',
+    stamp: 'INNER MONGOLIA · ULAN HADA',
+    category: '深夜',
+    image: 'assets/photos/stars.jpg',
+    feeling: '抬头的一瞬间，所有语言都失效了。我躺在火山岩上，觉得自己很小，但并没有因此难过。',
+    baseScore: 5.0,
+    baseVotes: 312
+  },
+  {
+    id: 'q15',
+    title: '在美术馆坐了一下午',
+    date: '2026.02.24',
+    iso: '2026-02-24',
+    time: '14:10',
+    place: '北京 · 798',
+    stamp: 'BEIJING · 798',
+    category: '日常',
+    image: 'assets/photos/museum.jpg',
+    feeling: '看不懂那幅画，但在它面前坐了很久。后来想通了：有些东西不需要被理解，只需要被允许存在。',
+    baseScore: 4.3,
+    baseVotes: 66
+  },
+  {
+    id: 'q16',
+    title: '山脊上多走的一公里',
+    date: '2025.05.18',
+    iso: '2025-05-18',
+    time: '12:20',
+    place: '云南 · 雨崩',
+    stamp: 'YUNNAN · YUBENG',
+    category: '远方',
+    image: 'assets/photos/hike.jpg',
+    feeling: '队伍原路返回，我多走了那条岔路。一公里后看见整片山谷，风大得站不稳。有些风景只奖励不肯回头的人。',
+    baseScore: 4.8,
+    baseVotes: 176
+  }
+];
+
+const RATING_LABELS = ['路过', '有点意思', '值得绕路', '想收藏', '人生级别'];
+const CATEGORY_NOTES = {
+  远方: '有些地方不是目的地，只是那天刚好想走远一点。',
+  日常: '日常不是空白，它只是还没有被认真命名。',
+  相遇: '人与人之间最短的路，往往是一次没有目的的相遇。',
+  深夜: '深夜把城市调成静音，才听得见自己。'
+};
+const CATEGORIES = ['远方', '日常', '相遇', '深夜'];
+const LS_KEYS = {
+  ratings: 'sidequests.ratings.v1',
+  hidden: 'sidequests.hidden.v1',
+  fallbackUploads: 'sidequests.uploads.fallback.v1'
+};
+const DB_NAME = 'sidequests-archive';
+const DB_STORE = 'photos';
+const MAX_FILE_BYTES = 20 * 1024 * 1024;
+const HOLD_MS = 2000;
+
+/* ---------------------------------------------------------
+   02. State + helpers
+   --------------------------------------------------------- */
+
+const state = {
+  uploads: [],
+  hidden: new Set(readJSON(LS_KEYS.hidden, [])),
+  ratings: readJSON(LS_KEYS.ratings, {}),
+  filter: 'all',
+  activeId: null,
+  db: null,
+  pendingImage: '',
+  peekValue: 0,
+  peekIndex: null,
+  peekPressing: false,
+  lastFocus: null,
+  lastDeleted: null,
+  flight: null,
+  flightPending: false,
+  toastTimer: 0,
+  statsAnimated: false
+};
+
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+
+function readJSON(key, fallback) {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function writeJSON(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.warn('Local storage is unavailable:', error);
+  }
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function escapeText(value) {
+  return String(value ?? '');
+}
+
+function todayISO() {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+function currentTime() {
+  const now = new Date();
+  return `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
+function isoToDisplay(iso) {
+  return (iso || todayISO()).replaceAll('-', '.');
+}
+
+function pad(number) {
+  return String(number).padStart(2, '0');
+}
+
+function allQuests() {
+  return [...state.uploads, ...PRESETS];
+}
+
+function visibleQuests() {
+  return allQuests().filter(quest => !state.hidden.has(quest.id));
+}
+
+function findQuest(id) {
+  return allQuests().find(quest => quest.id === id) || null;
+}
+
+function getRating(quest) {
+  const baseVotes = Number(quest.baseVotes) || 0;
+  const baseSum = (Number(quest.baseScore) || 0) * baseVotes;
+  const mine = Number(state.ratings[quest.id]) || 0;
+  const votes = baseVotes + (mine ? 1 : 0);
+  const sum = baseSum + mine;
+  return {
+    mine,
+    votes,
+    sum,
+    avg: votes ? sum / votes : 0
+  };
+}
+
+function displayScore(quest) {
+  const rating = getRating(quest);
+  return rating.votes ? rating.avg.toFixed(1) : 'NEW';
+}
+
+function saveRatings() {
+  writeJSON(LS_KEYS.ratings, state.ratings);
+}
+
+function saveHidden() {
+  writeJSON(LS_KEYS.hidden, Array.from(state.hidden));
+}
+
+/* ---------------------------------------------------------
+   03. DOM references
+   --------------------------------------------------------- */
+
+const dom = {
+  body: document.body,
+  header: $('#siteHeader'),
+  menuButton: $('#menuButton'),
+  mobileMenu: $('#mobileMenu'),
+  gridMotion: $('#gridMotion'),
+  gmPlane: $('#gmPlane'),
+  hero: $('#hero'),
+  heroSpot: $('#heroSpot'),
+  heroCount: $('#heroCount'),
+  gallery: $('#gallery'),
+  galleryEmpty: $('#galleryEmpty'),
+  filters: $('#filters'),
+  indexCount: $('#indexCount'),
+  statQuests: $('#statQuests'),
+  statRating: $('#statRating'),
+  stats: $('#stats'),
+  scrollProgress: $('#scrollProgress'),
+  sling: $('#sling'),
+  slingPad: $('#slingPad'),
+  slingBandA: $('#slingBandA'),
+  slingBandB: $('#slingBandB'),
+  slingArc: $('#slingArc'),
+  detailLayer: $('#detailLayer'),
+  detailClose: $('#detailClose'),
+  detailIndex: $('#detailIndex'),
+  detailCategory: $('#detailCategory'),
+  detailImage: $('#detailImage'),
+  reflectiveCard: $('#reflectiveCard'),
+  detailStampDate: $('#detailStampDate'),
+  detailStampPlace: $('#detailStampPlace'),
+  detailDate: $('#detailDate'),
+  detailTime: $('#detailTime'),
+  detailTimeDot: $('#detailTimeDot'),
+  detailPlace: $('#detailPlace'),
+  detailNote: $('#detailNote'),
+  detailMine: $('#detailMine'),
+  detailTitle: $('#detailTitle'),
+  detailFeeling: $('#detailFeeling'),
+  detailContent: $('#detailContent'),
+  detailScroll: $('.detail-scroll'),
+  ratingAverage: $('#ratingAverage'),
+  ratingCount: $('#ratingCount'),
+  ratingBars: $('#ratingBars'),
+  peekRating: $('#peekRating'),
+  ratingNote: $('#ratingNote'),
+  shareButton: $('#shareButton'),
+  holdDelete: $('#holdDelete'),
+  holdDeleteText: $('#holdDeleteText'),
+  detailPrev: $('#detailPrev'),
+  detailNext: $('#detailNext'),
+  detailPrevTitle: $('#detailPrevTitle'),
+  detailNextTitle: $('#detailNextTitle'),
+  uploadLayer: $('#uploadLayer'),
+  uploadClose: $('#uploadClose'),
+  uploadNo: $('#uploadNo'),
+  uploadForm: $('#uploadForm'),
+  fileInput: $('#fileInput'),
+  dropzone: $('#dropzone'),
+  dropEmpty: $('#dropEmpty'),
+  dropPreview: $('#dropPreview'),
+  previewImg: $('#previewImg'),
+  fileName: $('#fileName'),
+  fileMeta: $('#fileMeta'),
+  replaceFile: $('#replaceFile'),
+  fieldTitle: $('#fieldTitle'),
+  fieldDate: $('#fieldDate'),
+  fieldTime: $('#fieldTime'),
+  fieldCategory: $('#fieldCategory'),
+  dateYear: $('#dateYear'),
+  dateMonth: $('#dateMonth'),
+  dateDay: $('#dateDay'),
+  categoryGlide: $('#categoryGlide'),
+  fieldPlace: $('#fieldPlace'),
+  fieldFeeling: $('#fieldFeeling'),
+  feelingCount: $('#feelingCount'),
+  publishButton: $('#publishButton'),
+  resetRatings: $('#resetRatings'),
+  restoreHidden: $('#restoreHidden'),
+  hiddenCount: $('#hiddenCount'),
+  toast: $('#toast'),
+  toastText: $('#toastText'),
+  toastAction: $('#toastAction'),
+  cardTemplate: $('#cardTemplate'),
+  sparkCanvas: $('#sparkCanvas'),
+  intro: $('#intro')
+};
+
+/* ---------------------------------------------------------
+   04. Database (IndexedDB with localStorage fallback)
+   --------------------------------------------------------- */
+
+function openDatabase() {
+  return new Promise((resolve, reject) => {
+    if (!('indexedDB' in window)) {
+      reject(new Error('IndexedDB is not available'));
+      return;
+    }
+
+    const request = indexedDB.open(DB_NAME, 1);
+    const timer = window.setTimeout(() => reject(new Error('Opening the archive timed out')), 1200);
+
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(DB_STORE)) {
+        db.createObjectStore(DB_STORE, { keyPath: 'id' });
+      }
+    };
+
+    request.onsuccess = () => {
+      window.clearTimeout(timer);
+      resolve(request.result);
+    };
+    request.onerror = () => {
+      window.clearTimeout(timer);
+      reject(request.error || new Error('Could not open the archive'));
+    };
+    request.onblocked = () => {
+      window.clearTimeout(timer);
+      reject(new Error('The archive database is blocked'));
+    };
+  });
+}
+
+function dbGetAll() {
+  return new Promise((resolve, reject) => {
+    const transaction = state.db.transaction(DB_STORE, 'readonly');
+    const request = transaction.objectStore(DB_STORE).getAll();
+    const timer = window.setTimeout(() => reject(new Error('Reading the archive timed out')), 1500);
+    request.onsuccess = () => {
+      window.clearTimeout(timer);
+      resolve(request.result || []);
+    };
+    request.onerror = () => {
+      window.clearTimeout(timer);
+      reject(request.error);
+    };
+  });
+}
+
+function dbPut(record) {
+  return new Promise((resolve, reject) => {
+    const transaction = state.db.transaction(DB_STORE, 'readwrite');
+    const timer = window.setTimeout(() => reject(new Error('Saving the photo timed out')), 2600);
+    transaction.objectStore(DB_STORE).put(record);
+    transaction.oncomplete = () => {
+      window.clearTimeout(timer);
+      resolve(record);
+    };
+    transaction.onerror = () => {
+      window.clearTimeout(timer);
+      reject(transaction.error);
+    };
+    transaction.onabort = () => {
+      window.clearTimeout(timer);
+      reject(transaction.error);
+    };
+  });
+}
+
+function dbDelete(id) {
+  return new Promise((resolve, reject) => {
+    const transaction = state.db.transaction(DB_STORE, 'readwrite');
+    const timer = window.setTimeout(() => reject(new Error('Removing the photo timed out')), 2000);
+    transaction.objectStore(DB_STORE).delete(id);
+    transaction.oncomplete = () => {
+      window.clearTimeout(timer);
+      resolve();
+    };
+    transaction.onerror = () => {
+      window.clearTimeout(timer);
+      reject(transaction.error);
+    };
+    transaction.onabort = () => {
+      window.clearTimeout(timer);
+      reject(transaction.error);
+    };
+  });
+}
+
+async function loadUploads() {
+  let records = [];
+
+  try {
+    state.db = await openDatabase();
+    records = await dbGetAll();
+  } catch (error) {
+    console.warn('IndexedDB unavailable, falling back to localStorage:', error);
+    state.db = null;
+    records = readJSON(LS_KEYS.fallbackUploads, []);
+  }
+
+  const merged = new Map();
+  [...records, ...state.uploads].forEach(record => {
+    if (!record || !record.id || !record.image) return;
+    merged.set(record.id, record);
+  });
+
+  state.uploads = Array.from(merged.values())
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+async function persistUpload(record) {
+  if (state.db) {
+    return dbPut(record);
+  }
+
+  const next = [record, ...state.uploads.filter(item => item.id !== record.id)];
+  writeJSON(LS_KEYS.fallbackUploads, next);
+  return record;
+}
+
+async function removePersistedUpload(id) {
+  if (state.db) {
+    return dbDelete(id);
+  }
+  const next = state.uploads.filter(item => item.id !== id);
+  writeJSON(LS_KEYS.fallbackUploads, next);
+}
+
+/* ---------------------------------------------------------
+   05. Intro, header, menu
+   --------------------------------------------------------- */
+
+function finishIntro() {
+  requestAnimationFrame(() => {
+    dom.body.classList.add('is-ready');
+  });
+  window.setTimeout(() => {
+    if (dom.intro) dom.intro.style.display = 'none';
+  }, 1500);
+}
+
+function setupHeader() {
+  let ticking = false;
+  const onScroll = () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const y = window.scrollY || window.pageYOffset;
+      dom.header.classList.toggle('is-scrolled', y > 45);
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      dom.scrollProgress.style.width = `${max > 0 ? clamp((y / max) * 100, 0, 100) : 0}%`;
+      ticking = false;
+    });
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+}
+
+function setupMenu() {
+  const close = () => {
+    dom.menuButton.setAttribute('aria-expanded', 'false');
+    dom.mobileMenu.classList.remove('is-open');
+    dom.mobileMenu.setAttribute('aria-hidden', 'true');
+  };
+
+  dom.menuButton.addEventListener('click', () => {
+    const open = dom.menuButton.getAttribute('aria-expanded') !== 'true';
+    dom.menuButton.setAttribute('aria-expanded', String(open));
+    dom.mobileMenu.classList.toggle('is-open', open);
+    dom.mobileMenu.setAttribute('aria-hidden', String(!open));
+  });
+
+  $$('a, button', dom.mobileMenu).forEach(element => {
+    element.addEventListener('click', close);
+  });
+
+  document.addEventListener('click', event => {
+    if (!dom.mobileMenu.classList.contains('is-open')) return;
+    if (dom.mobileMenu.contains(event.target) || dom.menuButton.contains(event.target)) return;
+    close();
+  });
+
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 860) close();
+  });
+}
+
+/* ---------------------------------------------------------
+   06. Grid Motion background
+   --------------------------------------------------------- */
+
+function tileMarkup(quest) {
+  return `
+    <span class="gm-tile__shade"></span>
+    <span class="gm-tile__caption">
+      <span>
+        <strong></strong>
+        <span></span>
+      </span>
+      <i aria-hidden="true">↗</i>
+    </span>
+  `;
+}
+
+function buildGrid() {
+  const list = visibleQuests();
+  const plane = dom.gmPlane;
+  plane.innerHTML = '';
+
+  if (!list.length) {
+    dom.gridMotion.classList.add('is-empty');
+    return;
+  }
+
+  dom.gridMotion.classList.remove('is-empty');
+
+  const rowCount = 4;
+  const groupSize = window.innerWidth < 700 ? 6 : 8;
+
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    const row = document.createElement('div');
+    row.className = 'gm-row';
+
+    const track = document.createElement('div');
+    track.className = 'gm-track';
+    track.style.setProperty('--gm-duration', `${78 + rowIndex * 13}s`);
+
+    for (let copy = 0; copy < 2; copy += 1) {
+      const group = document.createElement('div');
+      group.className = 'gm-group';
+
+      for (let tileIndex = 0; tileIndex < groupSize; tileIndex += 1) {
+        const quest = list[(rowIndex * 5 + tileIndex * 3 + copy * 0) % list.length];
+        const tile = document.createElement('button');
+        tile.type = 'button';
+        tile.className = 'gm-tile';
+        tile.dataset.questId = quest.id;
+        tile.tabIndex = -1;
+        tile.setAttribute('aria-hidden', 'true');
+        tile.innerHTML = tileMarkup(quest);
+
+        const image = document.createElement('img');
+        image.src = quest.image;
+        image.alt = '';
+        image.loading = 'eager';
+        image.decoding = 'async';
+        image.draggable = false;
+        tile.prepend(image);
+
+        $('.gm-tile__caption strong', tile).textContent = quest.title;
+        $('.gm-tile__caption span span', tile).textContent = `${quest.date} / ${quest.place}`;
+
+        image.addEventListener('error', () => {
+          tile.style.background = 'linear-gradient(140deg, #242018, #0d0b09)';
+          image.style.display = 'none';
+        });
+
+        group.append(tile);
+      }
+
+      track.append(group);
+    }
+
+    row.append(track);
+    plane.append(row);
+  }
+}
+
+function setupGridMotion() {
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const coarse = window.matchMedia('(pointer: coarse)');
+  let spotRaf = 0;
+  let lastSpotTime = 0;
+  let lastX = 0;
+  let lastY = 0;
+
+  const resetSpot = () => {
+    $$('.gm-tile', dom.gmPlane).forEach(tile => tile.style.setProperty('--spot', '0'));
+    dom.heroSpot.style.opacity = '0';
+  };
+
+  const paintSpot = () => {
+    spotRaf = 0;
+    if (reduceMotion.matches || coarse.matches) return;
+
+    const tiles = $$('.gm-tile', dom.gmPlane);
+    tiles.forEach(tile => {
+      const rect = tile.getBoundingClientRect();
+      if (rect.right < -80 || rect.left > window.innerWidth + 80 || rect.bottom < -80 || rect.top > window.innerHeight + 80) {
+        tile.style.setProperty('--spot', '0');
+        return;
+      }
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const distance = Math.hypot(lastX - centerX, lastY - centerY);
+      const reach = Math.max(320, Math.min(560, window.innerWidth * 0.34));
+      const spot = clamp(1 - distance / reach, 0, 1);
+      tile.style.setProperty('--spot', spot.toFixed(3));
+    });
+  };
+
+  dom.hero.addEventListener('pointermove', event => {
+    if (reduceMotion.matches) return;
+
+    const x = event.clientX;
+    const y = event.clientY;
+    lastX = x;
+    lastY = y;
+
+    dom.heroSpot.style.setProperty('--mx', `${x}px`);
+    dom.heroSpot.style.setProperty('--my', `${y}px`);
+    dom.heroSpot.style.opacity = coarse.matches ? '0' : '1';
+
+    if (!coarse.matches) {
+      const nx = x / window.innerWidth - 0.5;
+      const ny = y / window.innerHeight - 0.5;
+      dom.gmPlane.style.setProperty('--gm-x', `${nx * 22}px`);
+      dom.gmPlane.style.setProperty('--gm-y', `${ny * 16}px`);
+    }
+
+    const now = performance.now();
+    if (!spotRaf && now - lastSpotTime > 70) {
+      lastSpotTime = now;
+      spotRaf = requestAnimationFrame(paintSpot);
+    }
+  }, { passive: true });
+
+  dom.hero.addEventListener('pointerleave', resetSpot);
+  dom.hero.addEventListener('pointercancel', resetSpot);
+
+  dom.gmPlane.addEventListener('click', event => {
+    const tile = event.target.closest('.gm-tile');
+    if (!tile) return;
+    openDetail(tile.dataset.questId, $('img', tile));
+  });
+
+  if (reduceMotion.addEventListener) {
+    reduceMotion.addEventListener('change', resetSpot);
+  }
+}
+
+/* ---------------------------------------------------------
+   07. Cards, filters, reveal
+   --------------------------------------------------------- */
+
+const revealObserver = 'IntersectionObserver' in window
+  ? new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('in-view');
+        revealObserver.unobserve(entry.target);
+      });
+    }, { threshold: 0.08, rootMargin: '0px 0px -4% 0px' })
+  : null;
+
+function observeReveal(element) {
+  if (!revealObserver) {
+    element.classList.add('in-view');
+    return;
+  }
+  revealObserver.observe(element);
+}
+
+function cardClassFor(index) {
+  if (index % 9 === 0) return 'is-portrait';
+  if (index % 9 === 3) return 'is-wide';
+  if (index % 9 === 6) return 'is-square';
+  return '';
+}
+
+function updateFilterCounts() {
+  const list = visibleQuests();
+  const allButton = $('[data-filter="all"]', dom.filters);
+  if (allButton) $('span', allButton).textContent = String(list.length);
+
+  CATEGORIES.forEach(category => {
+    const button = $(`[data-filter="${category}"]`, dom.filters);
+    if (!button) return;
+    $('span', button).textContent = String(list.filter(quest => quest.category === category).length);
+  });
+
+  dom.heroCount.textContent = String(list.length);
+  dom.indexCount.textContent = `（${list.length}）`;
+}
+
+function renderGallery() {
+  const list = visibleQuests();
+  const fragment = document.createDocumentFragment();
+  dom.gallery.innerHTML = '';
+
+  list.forEach((quest, index) => {
+    const card = dom.cardTemplate.content.firstElementChild.cloneNode(true);
+    const rating = getRating(quest);
+    const cardClass = cardClassFor(index);
+
+    if (cardClass) card.classList.add(cardClass);
+    card.dataset.id = quest.id;
+    card.dataset.category = quest.category;
+    card.style.setProperty('--delay', `${Math.min(index * 40, 320)}ms`);
+
+    const image = $('img', card);
+    image.src = quest.image;
+    image.alt = `${quest.title}，${quest.place}`;
+    image.addEventListener('error', () => {
+      image.style.display = 'none';
+      $('.quest-card__media', card).style.background = 'linear-gradient(145deg, #2a241b, #100e0b)';
+    });
+
+    $('.quest-card__cat', card).textContent = quest.category;
+    $('.quest-card__no', card).textContent = `${pad(index + 1)} / ${pad(list.length)}`;
+    $('.quest-card__title-row h3', card).textContent = quest.title;
+    $('.quest-card__date', card).textContent = quest.date;
+    $('.quest-card__place', card).textContent = quest.place;
+    $('.quest-card__score-num', card).textContent = rating.votes ? rating.avg.toFixed(1) : 'NEW';
+    $('.quest-card__score .star', card).textContent = rating.votes ? '★' : '✳';
+
+    if (quest.isUser) {
+      const mine = $('.quest-card__mine', card);
+      mine.hidden = false;
+    }
+
+    const button = $('.quest-card__button', card);
+    button.setAttribute('aria-label', `打开支线：${quest.title}，${quest.place}，${quest.date}`);
+    button.addEventListener('click', () => openDetail(quest.id, image));
+    attachCardTilt(button);
+
+    fragment.append(card);
+  });
+
+  dom.gallery.append(fragment);
+  $$('.quest-card', dom.gallery).forEach(card => observeReveal(card));
+  applyFilter(false);
+  updateFilterCounts();
+}
+
+function attachCardTilt(button) {
+  const media = $('.quest-card__media', button);
+  const glare = $('.quest-card__glare', button);
+  let frame = 0;
+  let pointer = { x: 0, y: 0 };
+
+  const paint = () => {
+    frame = 0;
+    const rect = media.getBoundingClientRect();
+    const px = clamp((pointer.x - rect.left) / rect.width, 0, 1);
+    const py = clamp((pointer.y - rect.top) / rect.height, 0, 1);
+    const rx = (0.5 - py) * 7;
+    const ry = (px - 0.5) * 8;
+    media.style.setProperty('--rx', `${rx.toFixed(2)}deg`);
+    media.style.setProperty('--ry', `${ry.toFixed(2)}deg`);
+    glare.style.setProperty('--gx', `${(px * 100).toFixed(1)}%`);
+    glare.style.setProperty('--gy', `${(py * 100).toFixed(1)}%`);
+  };
+
+  button.addEventListener('pointermove', event => {
+    if (event.pointerType !== 'mouse') return;
+    pointer = { x: event.clientX, y: event.clientY };
+    if (!frame) frame = requestAnimationFrame(paint);
+  });
+
+  const reset = () => {
+    if (frame) cancelAnimationFrame(frame);
+    frame = 0;
+    media.style.setProperty('--rx', '0deg');
+    media.style.setProperty('--ry', '0deg');
+  };
+
+  button.addEventListener('pointerleave', reset);
+  button.addEventListener('blur', reset);
+}
+
+function applyFilter(animate = true) {
+  const cards = $$('.quest-card', dom.gallery);
+  let visibleCount = 0;
+
+  cards.forEach(card => {
+    const matches = state.filter === 'all' || card.dataset.category === state.filter;
+    card.classList.toggle('is-filtered', !matches);
+    if (matches) {
+      visibleCount += 1;
+      if (animate) {
+        card.animate(
+          [
+            { opacity: 0, transform: 'translateY(14px)' },
+            { opacity: 1, transform: 'translateY(0)' }
+          ],
+          { duration: 550, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'none' }
+        );
+      }
+    }
+  });
+
+  dom.galleryEmpty.hidden = visibleCount !== 0;
+}
+
+function setupFilters() {
+  dom.filters.addEventListener('click', event => {
+    const button = event.target.closest('.filter');
+    if (!button) return;
+    const next = button.dataset.filter;
+    if (next === state.filter) return;
+    state.filter = next;
+    $$('.filter', dom.filters).forEach(item => item.classList.toggle('is-active', item === button));
+    applyFilter(true);
+  });
+}
+
+/* ---------------------------------------------------------
+   08. Stats / scores
+   --------------------------------------------------------- */
+
+function aggregateAverage() {
+  const list = visibleQuests();
+  let votes = 0;
+  let sum = 0;
+  list.forEach(quest => {
+    const rating = getRating(quest);
+    votes += rating.votes;
+    sum += rating.sum;
+  });
+  return votes ? sum / votes : 0;
+}
+
+function updateStats() {
+  const list = visibleQuests();
+  const average = aggregateAverage();
+
+  dom.statQuests.dataset.count = String(list.length);
+  dom.statRating.dataset.count = average.toFixed(1);
+
+  if (state.statsAnimated) {
+    dom.statQuests.textContent = String(list.length);
+    dom.statRating.textContent = average.toFixed(1);
+  }
+
+  dom.restoreHidden.hidden = state.hidden.size === 0;
+  dom.hiddenCount.textContent = String(state.hidden.size);
+}
+
+function animateStats() {
+  if (state.statsAnimated) return;
+  state.statsAnimated = true;
+
+  $$('.count-up', dom.stats).forEach(element => {
+    const target = Number(element.dataset.count) || 0;
+    const decimals = Number(element.dataset.decimals) || 0;
+    const start = performance.now();
+    const duration = 1300;
+
+    const tick = now => {
+      const progress = clamp((now - start) / duration, 0, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      element.textContent = (target * eased).toFixed(decimals);
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+
+    requestAnimationFrame(tick);
+  });
+}
+
+function setupStats() {
+  if (!('IntersectionObserver' in window)) {
+    animateStats();
+    return;
+  }
+  const observer = new IntersectionObserver(entries => {
+    if (entries.some(entry => entry.isIntersecting)) {
+      animateStats();
+      observer.disconnect();
+    }
+  }, { threshold: 0.45 });
+  observer.observe(dom.stats);
+}
+
+/* ---------------------------------------------------------
+   09. Detail view
+   --------------------------------------------------------- */
+
+let detailOpen = false;
+let uploadOpen = false;
+
+function starsMarkup(value) {
+  const rounded = Math.round(value);
+  return Array.from({ length: 5 }, (_, index) => {
+    const className = index < rounded ? '' : ' class="off"';
+    return `<span${className}>★</span>`;
+  }).join('');
+}
+
+function starSvg() {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.82 5.72 6.31.92-4.57 4.45 1.08 6.29L12 17.21l-5.64 2.97 1.08-6.29L2.87 9.44l6.31-.92L12 2.8z" fill="currentColor"/></svg>';
+}
+
+function renderRatingCard(quest) {
+  const rating = getRating(quest);
+  dom.ratingAverage.textContent = rating.votes ? rating.avg.toFixed(1) : '—';
+  dom.ratingCount.textContent = rating.votes.toLocaleString('zh-CN');
+  dom.ratingBars.innerHTML = starsMarkup(rating.avg);
+
+  if (rating.mine) {
+    dom.ratingNote.innerHTML = `你给了 <strong>${rating.mine}</strong> 分 · ${RATING_LABELS[rating.mine - 1]}，谢谢你把这一刻看完。`;
+  } else {
+    dom.ratingNote.textContent = '点击星星即可评分，再点一次可以收回。';
+  }
+
+  buildPeekRating(quest, rating.mine);
+}
+
+function buildPeekRating(quest, value) {
+  state.peekValue = value;
+  state.peekIndex = null;
+  state.peekPressing = false;
+
+  const row = document.createElement('div');
+  row.className = 'peek-rating__row';
+
+  const tip = document.createElement('span');
+  tip.className = 'peek-rating__tip';
+  tip.setAttribute('aria-hidden', 'true');
+  tip.dataset.show = 'false';
+  row.append(tip);
+
+  for (let index = 0; index < 5; index += 1) {
+    const star = document.createElement('button');
+    star.type = 'button';
+    star.className = 'peek-rating__star';
+    star.setAttribute('role', 'radio');
+    star.setAttribute('aria-checked', String(value === index + 1));
+    star.setAttribute('aria-label', `${index + 1} 分，${RATING_LABELS[index]}`);
+    star.tabIndex = value === 0 ? (index === 0 ? 0 : -1) : (value === index + 1 ? 0 : -1);
+
+    const lift = document.createElement('span');
+    lift.className = 'peek-rating__lift';
+    const glyph = document.createElement('span');
+    glyph.className = 'peek-rating__glyph';
+    glyph.dataset.lit = String(index < value);
+    glyph.innerHTML = starSvg();
+
+    lift.append(glyph);
+    star.append(lift);
+    star.dataset.index = String(index);
+    row.append(star);
+  }
+
+  dom.peekRating.innerHTML = '';
+  dom.peekRating.append(row);
+
+  const stars = $$('.peek-rating__star', row);
+  const glyphs = $$('.peek-rating__glyph', row);
+  const lifts = $$('.peek-rating__lift', row);
+  let lastPointerCommit = 0;
+
+  const indexAt = event => {
+    const rect = row.getBoundingClientRect();
+    const index = clamp(Math.floor(((event.clientX - rect.left) / rect.width) * 5), 0, 4);
+    return index;
+  };
+
+  const paint = (hoverIndex, preview = true) => {
+    state.peekIndex = hoverIndex;
+    const shown = preview && hoverIndex !== null ? hoverIndex + 1 : state.peekValue;
+
+    glyphs.forEach((glyph, index) => {
+      glyph.dataset.lit = String(index < shown);
+    });
+
+    lifts.forEach((lift, index) => {
+      if (preview && hoverIndex !== null && index <= hoverIndex) {
+        lift.style.transform = `translateY(-7px) scale(${index === hoverIndex ? 1.18 : 1})`;
+      } else {
+        lift.style.transform = 'translateY(0) scale(1)';
+      }
+    });
+
+    if (preview && hoverIndex !== null) {
+      const rect = row.getBoundingClientRect();
+      const slot = rect.width / 5;
+      const center = slot * (hoverIndex + 0.5);
+      tip.textContent = RATING_LABELS[hoverIndex];
+      tip.style.setProperty('--tip-x', `${center - tip.offsetWidth / 2}px`);
+      tip.dataset.show = 'true';
+    } else {
+      tip.dataset.show = 'false';
+    }
+  };
+
+  row.addEventListener('pointermove', event => {
+    if (event.pointerType !== 'mouse' && !state.peekPressing) return;
+    paint(indexAt(event), true);
+  });
+
+  row.addEventListener('pointerleave', () => {
+    if (state.peekPressing) return;
+    paint(null, false);
+  });
+
+  row.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || state.peekPressing) return;
+    state.peekPressing = true;
+    row.setPointerCapture?.(event.pointerId);
+    paint(indexAt(event), true);
+  });
+
+  row.addEventListener('pointerup', event => {
+    if (!state.peekPressing) return;
+    state.peekPressing = false;
+    const index = indexAt(event);
+    lastPointerCommit = performance.now();
+    commitRating(quest, index + 1);
+    if (event.pointerType !== 'mouse') paint(null, false);
+  });
+
+  row.addEventListener('pointercancel', () => {
+    state.peekPressing = false;
+    paint(null, false);
+  });
+
+  stars.forEach((star, index) => {
+    star.addEventListener('click', event => {
+      if (event.detail === 0 || performance.now() - lastPointerCommit > 350) {
+        commitRating(quest, index + 1, { restoreFocus: event.detail === 0 });
+      }
+    });
+
+    star.addEventListener('focus', () => {
+      if (state.peekPressing) return;
+      paint(index, true);
+    });
+
+    star.addEventListener('blur', () => {
+      if (state.peekPressing) return;
+      paint(null, false);
+    });
+  });
+
+  row.addEventListener('keydown', event => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End', 'Backspace', 'Delete'].includes(event.key)) return;
+    event.preventDefault();
+    let next = state.peekValue;
+    if (event.key === 'ArrowRight') next = clamp(state.peekValue + 1, 0, 5);
+    if (event.key === 'ArrowLeft') next = clamp(state.peekValue - 1, 0, 5);
+    if (event.key === 'Home') next = 1;
+    if (event.key === 'End') next = 5;
+    if (event.key === 'Backspace' || event.key === 'Delete') next = 0;
+    commitRating(quest, next, { restoreFocus: true });
+  });
+
+  paint(null, false);
+}
+
+function commitRating(quest, value, options = {}) {
+  const previous = Number(state.ratings[quest.id]) || 0;
+  const next = previous === value ? 0 : value;
+
+  if (next) {
+    state.ratings[quest.id] = next;
+  } else {
+    delete state.ratings[quest.id];
+  }
+  saveRatings();
+
+  state.peekValue = next;
+  state.peekIndex = null;
+
+  renderRatingCard(quest);
+  updateGalleryScore(quest.id);
+  updateStats();
+
+  const star = $$('.peek-rating__glyph', dom.peekRating)[Math.max(0, next - 1)];
+  if (star && next && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    star.animate(
+      [
+        { transform: 'scale(1)' },
+        { transform: 'scale(1.28)', offset: 0.42 },
+        { transform: 'scale(1)' }
+      ],
+      { duration: 360, easing: 'cubic-bezier(.22,1,.36,1)' }
+    );
+  }
+
+  if (next) {
+    pulseNote(next);
+  }
+
+  if (options.restoreFocus) {
+    requestAnimationFrame(() => {
+      const focusIndex = next ? Math.max(0, next - 1) : 0;
+      $$('.peek-rating__star', dom.peekRating)[focusIndex]?.focus({ preventScroll: true });
+    });
+  }
+}
+
+function pulseNote(value) {
+  dom.ratingNote.innerHTML = `你给了 <strong>${value}</strong> 分 · ${RATING_LABELS[value - 1]}，谢谢你把这一刻看完。`;
+  dom.ratingNote.animate(
+    [
+      { opacity: 0, transform: 'translateY(3px)' },
+      { opacity: 1, transform: 'none' }
+    ],
+    { duration: 320, easing: 'ease-out' }
+  );
+}
+
+function updateGalleryScore(id) {
+  const quest = findQuest(id);
+  if (!quest) return;
+  const rating = getRating(quest);
+  const card = $(`.quest-card[data-id="${CSS.escape(id)}"]`, dom.gallery);
+  if (!card) return;
+  $('.quest-card__score-num', card).textContent = rating.votes ? rating.avg.toFixed(1) : 'NEW';
+  $('.quest-card__score .star', card).textContent = rating.votes ? '★' : '✳';
+}
+
+function renderDetail(quest) {
+  const archive = allQuests();
+  const visible = visibleQuests();
+  const index = archive.findIndex(item => item.id === quest.id);
+  const visibleIndex = visible.findIndex(item => item.id === quest.id);
+  const previous = visible.length > 1 ? visible[(visibleIndex - 1 + visible.length) % visible.length] : null;
+  const next = visible.length > 1 ? visible[(visibleIndex + 1) % visible.length] : null;
+  const rating = getRating(quest);
+
+  dom.detailIndex.textContent = `${pad(index + 1)} / ${pad(archive.length)}`;
+  dom.detailCategory.textContent = quest.category;
+  dom.detailImage.src = quest.image;
+  dom.detailImage.alt = `${quest.title}，拍摄于${quest.place}`;
+  dom.detailStampDate.textContent = quest.date;
+  dom.detailStampPlace.textContent = quest.stamp || 'PERSONAL ARCHIVE';
+  dom.detailDate.textContent = quest.date;
+  dom.detailTime.textContent = quest.time || '';
+  dom.detailTime.hidden = !quest.time;
+  dom.detailTimeDot.hidden = !quest.time;
+  dom.detailPlace.textContent = quest.place;
+  dom.detailTitle.textContent = quest.title;
+  dom.detailFeeling.textContent = quest.feeling || '有些时刻来不及描述，只能先把它留下来。';
+  dom.detailNote.textContent = CATEGORY_NOTES[quest.category] || CATEGORY_NOTES['日常'];
+  dom.detailMine.hidden = !quest.isUser;
+  dom.holdDelete.removeAttribute('data-done');
+  dom.holdDelete.removeAttribute('data-holding');
+  dom.holdDelete.style.setProperty('--hold-p', '0');
+  dom.holdDeleteText.textContent = quest.isUser ? '按住 2 秒 · 从本机删除' : '按住 2 秒 · 从档案中隐藏';
+  $('.hold-delete__done', dom.holdDelete).textContent = quest.isUser ? '已从本机删除' : '已从档案中隐藏';
+
+  dom.detailPrev.disabled = !previous;
+  dom.detailNext.disabled = !next;
+  dom.detailPrevTitle.textContent = previous ? previous.title : '已是第一条';
+  dom.detailNextTitle.textContent = next ? next.title : '已是最后一条';
+
+  dom.ratingAverage.textContent = rating.votes ? rating.avg.toFixed(1) : '—';
+  dom.ratingCount.textContent = rating.votes.toLocaleString('zh-CN');
+  dom.ratingBars.innerHTML = starsMarkup(rating.avg);
+  dom.detailScroll.scrollTop = 0;
+
+  renderRatingCard(quest);
+
+  document.title = `${quest.title} · 人生支线`;
+}
+
+function navigateDetail(direction) {
+  const list = visibleQuests();
+  if (list.length < 2) return;
+  const current = list.findIndex(quest => quest.id === state.activeId);
+  if (current < 0) return;
+  clearPhotoFlight();
+  const next = (current + direction + list.length) % list.length;
+  renderDetail(list[next]);
+  state.activeId = list[next].id;
+  setQuestParam(list[next].id);
+}
+
+function setQuestParam(id) {
+  try {
+    const url = new URL(window.location.href);
+    if (id) {
+      url.searchParams.set('quest', id);
+    } else {
+      url.searchParams.delete('quest');
+    }
+    window.history.replaceState({}, '', url);
+  } catch (error) {
+    /* file:// and old browsers can reject history updates — not critical */
+  }
+}
+
+function openDetail(id, sourceImage = null) {
+  const quest = findQuest(id);
+  if (!quest || state.hidden.has(id)) return;
+
+  if (uploadOpen) closeUpload(true);
+  clearPhotoFlight();
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const sourceFrame = sourceImage
+    ? (sourceImage.closest('.quest-card__media') || sourceImage.closest('.gm-tile') || sourceImage)
+    : null;
+  const sourceRect = sourceFrame ? sourceFrame.getBoundingClientRect() : null;
+  const canFly = Boolean(sourceImage && sourceRect && sourceRect.width > 24 && sourceRect.height > 24 && !reduced);
+
+  detailOpen = true;
+  state.activeId = id;
+  state.lastFocus = document.activeElement;
+  if (canFly) {
+    state.flightPending = true;
+    dom.detailImage.style.opacity = '0';
+  }
+  dom.reflectiveCard?.style.setProperty('--rc-light', '0');
+  dom.reflectiveCard?.style.setProperty('--rc-rx', '0deg');
+  dom.reflectiveCard?.style.setProperty('--rc-ry', '0deg');
+  renderDetail(quest);
+
+  if (canFly) dom.detailLayer.classList.add('is-flying');
+  dom.detailLayer.classList.add('is-open');
+  dom.detailLayer.setAttribute('aria-hidden', 'false');
+  dom.body.classList.add('is-locked');
+  setQuestParam(id);
+
+  if (canFly) {
+    runPhotoFlight(sourceImage, sourceFrame, sourceRect);
+  }
+
+  window.setTimeout(() => {
+    dom.detailClose.focus({ preventScroll: true });
+  }, 160);
+}
+
+function runPhotoFlight(sourceImage, sourceFrame, sourceRect) {
+  if (!detailOpen || !dom.detailLayer.classList.contains('is-open')) return;
+
+  const sourceSrc = sourceImage.currentSrc || sourceImage.src;
+  if (!sourceSrc) {
+    state.flightPending = false;
+    dom.detailImage.style.opacity = '';
+    dom.detailLayer.classList.remove('is-flying');
+    return;
+  }
+
+  state.flightPending = false;
+  dom.detailImage.style.opacity = '0';
+
+  const clone = document.createElement('img');
+  clone.className = 'quest-flight';
+  clone.src = sourceSrc;
+  clone.alt = '';
+  clone.decoding = 'async';
+  clone.draggable = false;
+  clone.style.left = `${sourceRect.left}px`;
+  clone.style.top = `${sourceRect.top}px`;
+  clone.style.width = `${sourceRect.width}px`;
+  clone.style.height = `${sourceRect.height}px`;
+  clone.style.borderRadius = getComputedStyle(sourceFrame).borderRadius || '14px';
+  document.body.append(clone);
+
+  const token = Symbol('quest-flight');
+  const flight = { token, clone, animation: null, cancelled: false };
+  state.flight = flight;
+
+  const targetRect = dom.detailImage.getBoundingClientRect();
+  if (!targetRect.width || !targetRect.height) {
+    clearPhotoFlight();
+    return;
+  }
+  const targetRadius = getComputedStyle(dom.detailImage).borderRadius || '0px';
+
+  const duration = 640;
+  const imageReady = dom.detailImage.complete && dom.detailImage.naturalWidth > 0
+    ? Promise.resolve()
+    : new Promise(resolve => {
+        const done = () => resolve();
+        dom.detailImage.addEventListener('load', done, { once: true });
+        dom.detailImage.addEventListener('error', done, { once: true });
+        window.setTimeout(done, 1400);
+      });
+
+  requestAnimationFrame(() => {
+    if (!state.flight || state.flight.token !== token || flight.cancelled) return;
+
+    const animation = clone.animate(
+      [
+        {
+          left: `${sourceRect.left}px`,
+          top: `${sourceRect.top}px`,
+          width: `${sourceRect.width}px`,
+          height: `${sourceRect.height}px`,
+          borderRadius: clone.style.borderRadius
+        },
+        {
+          left: `${targetRect.left}px`,
+          top: `${targetRect.top}px`,
+          width: `${targetRect.width}px`,
+          height: `${targetRect.height}px`,
+          borderRadius: targetRadius
+        }
+      ],
+      {
+        duration,
+        easing: 'cubic-bezier(0.22, 0.78, 0.24, 1)',
+        fill: 'forwards'
+      }
+    );
+
+    flight.animation = animation;
+
+    Promise.all([animation.finished.catch(() => {}), imageReady]).then(() => {
+      if (!state.flight || state.flight.token !== token || flight.cancelled) return;
+      dom.detailImage.style.opacity = '1';
+      clone.remove();
+      dom.detailLayer.classList.remove('is-flying');
+      state.flight = null;
+      state.flightPending = false;
+    });
+  });
+}
+
+function clearPhotoFlight() {
+  state.flightPending = false;
+  if (!state.flight) {
+    dom.detailImage.style.opacity = '';
+    dom.detailLayer.classList.remove('is-flying');
+    return;
+  }
+
+  const flight = state.flight;
+  state.flight = null;
+  flight.cancelled = true;
+  try {
+    flight.animation?.cancel();
+  } catch (error) {
+    /* ignore */
+  }
+  flight.clone?.remove();
+  dom.detailImage.style.opacity = '';
+  dom.detailLayer.classList.remove('is-flying');
+}
+
+function closeDetail(skipFocus = false) {
+  if (!detailOpen) return;
+  clearPhotoFlight();
+  detailOpen = false;
+  state.activeId = null;
+  dom.detailLayer.classList.remove('is-open');
+  dom.detailLayer.setAttribute('aria-hidden', 'true');
+  if (!uploadOpen) dom.body.classList.remove('is-locked');
+  setQuestParam(null);
+  document.title = '人生支线 · SIDE QUESTS';
+
+  if (!skipFocus && state.lastFocus && document.contains(state.lastFocus)) {
+    state.lastFocus.focus({ preventScroll: true });
+  }
+}
+
+function setupReflectiveCard() {
+  const card = dom.reflectiveCard;
+  if (!card) return;
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const coarse = window.matchMedia('(pointer: coarse)');
+  let raf = 0;
+  let pointerX = 0.5;
+  let pointerY = 0.3;
+
+  const paint = () => {
+    raf = 0;
+    const tiltX = (0.5 - pointerY) * 4.4;
+    const tiltY = (pointerX - 0.5) * 5.2;
+    card.style.setProperty('--rc-rx', `${tiltX.toFixed(2)}deg`);
+    card.style.setProperty('--rc-ry', `${tiltY.toFixed(2)}deg`);
+    card.style.setProperty('--rc-gx', `${(pointerX * 100).toFixed(1)}%`);
+    card.style.setProperty('--rc-gy', `${(pointerY * 100).toFixed(1)}%`);
+    card.style.setProperty('--rc-angle', `${(104 + (pointerX - 0.5) * 48).toFixed(1)}deg`);
+  };
+
+  const reset = () => {
+    if (raf) cancelAnimationFrame(raf);
+    raf = 0;
+    card.style.setProperty('--rc-rx', '0deg');
+    card.style.setProperty('--rc-ry', '0deg');
+    card.style.setProperty('--rc-light', '0');
+  };
+
+  card.addEventListener('pointermove', event => {
+    if (reduced.matches || coarse.matches || event.pointerType === 'touch') return;
+    const rect = card.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    pointerX = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+    pointerY = clamp((event.clientY - rect.top) / rect.height, 0, 1);
+    card.style.setProperty('--rc-light', '1');
+    if (!raf) raf = requestAnimationFrame(paint);
+  });
+
+  card.addEventListener('pointerleave', reset);
+  card.addEventListener('pointercancel', reset);
+  window.addEventListener('blur', reset);
+}
+
+function setupDetail() {
+  dom.detailClose.addEventListener('click', () => closeDetail());
+  $$('[data-close-detail]').forEach(element => {
+    element.addEventListener('click', () => closeDetail());
+  });
+
+  dom.detailPrev.addEventListener('click', () => navigateDetail(-1));
+  dom.detailNext.addEventListener('click', () => navigateDetail(1));
+
+  dom.detailImage.addEventListener('error', () => {
+    if (!state.flight && !state.flightPending) dom.detailImage.style.opacity = '0.15';
+  });
+  dom.detailImage.addEventListener('load', () => {
+    if (!state.flight && !state.flightPending) dom.detailImage.style.opacity = '';
+  });
+
+  dom.shareButton.addEventListener('click', async () => {
+    const quest = findQuest(state.activeId);
+    if (!quest) return;
+    const shareUrl = window.location.href;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      showToast('链接已复制，去分享这条支线吧');
+    } catch (error) {
+      const input = document.createElement('input');
+      input.value = shareUrl;
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      document.body.append(input);
+      input.select();
+      try {
+        document.execCommand('copy');
+        showToast('链接已复制，去分享这条支线吧');
+      } catch (copyError) {
+        showToast('复制失败，请从地址栏复制链接');
+      }
+      input.remove();
+    }
+  });
+
+  setupHoldDelete();
+}
+
+/* ---------------------------------------------------------
+   10. Hold to delete
+   --------------------------------------------------------- */
+
+const hold = {
+  active: false,
+  complete: false,
+  raf: 0,
+  start: 0,
+  pointerId: null
+};
+
+function beginHold(event) {
+  if (hold.active || hold.complete) return;
+  hold.active = true;
+  hold.complete = false;
+  hold.start = performance.now();
+  hold.pointerId = event?.pointerId ?? null;
+
+  if (event && hold.pointerId !== null) {
+    try {
+      dom.holdDelete.setPointerCapture(hold.pointerId);
+    } catch (error) {
+      /* ignore */
+    }
+  }
+
+  dom.holdDelete.setAttribute('data-holding', '');
+  dom.holdDelete.style.setProperty('--hold-p', '0');
+
+  const tick = now => {
+    if (!hold.active) return;
+    const progress = clamp((now - hold.start) / HOLD_MS, 0, 1);
+    dom.holdDelete.style.setProperty('--hold-p', progress.toFixed(4));
+
+    if (progress >= 1) {
+      completeHold();
+      return;
+    }
+    hold.raf = requestAnimationFrame(tick);
+  };
+
+  hold.raf = requestAnimationFrame(tick);
+}
+
+function cancelHold() {
+  if (!hold.active || hold.complete) return;
+  hold.active = false;
+  cancelAnimationFrame(hold.raf);
+  dom.holdDelete.removeAttribute('data-holding');
+  dom.holdDelete.style.setProperty('--hold-p', '0');
+}
+
+function completeHold() {
+  if (hold.complete) return;
+  hold.active = false;
+  hold.complete = true;
+  cancelAnimationFrame(hold.raf);
+  dom.holdDelete.removeAttribute('data-holding');
+  dom.holdDelete.setAttribute('data-done', '');
+  dom.holdDelete.style.setProperty('--hold-p', '1');
+
+  window.setTimeout(() => {
+    const quest = findQuest(state.activeId);
+    if (quest) deleteQuest(quest.id);
+  }, 380);
+}
+
+function setupHoldDelete() {
+  dom.holdDelete.addEventListener('pointerdown', event => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    beginHold(event);
+  });
+
+  const end = event => {
+    if (!hold.active) return;
+    try {
+      if (event && event.pointerId != null && dom.holdDelete.hasPointerCapture(event.pointerId)) {
+        dom.holdDelete.releasePointerCapture(event.pointerId);
+      }
+    } catch (error) {
+      /* ignore */
+    }
+    cancelHold();
+  };
+
+  dom.holdDelete.addEventListener('pointerup', end);
+  dom.holdDelete.addEventListener('pointercancel', end);
+  dom.holdDelete.addEventListener('pointerleave', event => {
+    if (event.pointerType !== 'touch') cancelHold();
+  });
+
+  dom.holdDelete.addEventListener('keydown', event => {
+    if (event.key !== ' ' && event.key !== 'Enter') return;
+    event.preventDefault();
+    if (event.repeat) return;
+    beginHold();
+  });
+
+  dom.holdDelete.addEventListener('keyup', event => {
+    if (event.key !== ' ' && event.key !== 'Enter') return;
+    event.preventDefault();
+    cancelHold();
+  });
+
+  dom.holdDelete.addEventListener('contextmenu', event => event.preventDefault());
+  window.addEventListener('blur', cancelHold);
+}
+
+/* ---------------------------------------------------------
+   11. Delete / undo / restore / reset
+   --------------------------------------------------------- */
+
+async function deleteQuest(id) {
+  const quest = findQuest(id);
+  if (!quest) return;
+
+  if (detailOpen) closeDetail(true);
+
+  if (quest.isUser) {
+    state.uploads = state.uploads.filter(item => item.id !== id);
+    try {
+      await removePersistedUpload(id);
+    } catch (error) {
+      console.warn('Could not remove the photo from IndexedDB:', error);
+    }
+    state.lastDeleted = { type: 'upload', quest };
+    renderArchive();
+    showToast('这条支线已从本机删除', '撤销', undoDelete, 6500);
+    return;
+  }
+
+  state.hidden.add(id);
+  saveHidden();
+  state.lastDeleted = { type: 'preset', quest };
+  renderArchive();
+  showToast('这条支线已从档案中隐藏', '撤销', undoDelete, 6500);
+}
+
+async function undoDelete() {
+  if (!state.lastDeleted) return;
+  const { type, quest } = state.lastDeleted;
+  state.lastDeleted = null;
+
+  if (type === 'preset') {
+    state.hidden.delete(quest.id);
+    saveHidden();
+    renderArchive();
+    showToast('已恢复这条支线');
+    return;
+  }
+
+  state.uploads.unshift(quest);
+  try {
+    await persistUpload(quest);
+    renderArchive();
+    showToast('已恢复这条支线');
+  } catch (error) {
+    state.uploads = state.uploads.filter(item => item.id !== quest.id);
+    renderArchive();
+    showToast('恢复失败，浏览器存储空间可能不足');
+  }
+}
+
+function setupFooterActions() {
+  dom.restoreHidden.addEventListener('click', () => {
+    if (!state.hidden.size) return;
+    state.hidden.clear();
+    saveHidden();
+    renderArchive();
+    showToast('被隐藏的支线已全部回到档案');
+  });
+
+  dom.resetRatings.addEventListener('click', () => {
+    state.ratings = {};
+    saveRatings();
+    renderArchive();
+    showToast('你的评分已清除，星星重新空着');
+  });
+}
+
+/* ---------------------------------------------------------
+   12. Toast
+   --------------------------------------------------------- */
+
+function showToast(message, actionLabel = '', action = null, duration = 3400) {
+  window.clearTimeout(state.toastTimer);
+  dom.toastText.textContent = message;
+
+  if (actionLabel && typeof action === 'function') {
+    dom.toastAction.hidden = false;
+    dom.toastAction.textContent = actionLabel;
+    dom.toastAction.onclick = () => {
+      hideToast();
+      action();
+    };
+  } else {
+    dom.toastAction.hidden = true;
+    dom.toastAction.onclick = null;
+  }
+
+  dom.toast.classList.add('is-show');
+  state.toastTimer = window.setTimeout(hideToast, duration);
+}
+
+function hideToast() {
+  window.clearTimeout(state.toastTimer);
+  dom.toast.classList.remove('is-show');
+}
+
+/* ---------------------------------------------------------
+   13. Glide Select
+   --------------------------------------------------------- */
+
+let glideId = 0;
+let activeGlideClose = null;
+let categoryPicker = null;
+let datePicker = null;
+
+function normalizeGlideOption(option) {
+  if (typeof option === 'string') return { value: option, label: option, tag: '' };
+  return {
+    value: String(option.value ?? option.label ?? ''),
+    label: String(option.label ?? option.value ?? ''),
+    tag: option.tag ? String(option.tag) : ''
+  };
+}
+
+function createGlideSelect(root, config = {}) {
+  if (!root) return null;
+
+  let items = (config.options || []).map(normalizeGlideOption);
+  let current = config.value !== undefined ? String(config.value) : (items[0]?.value ?? '');
+  let isOpen = false;
+  let activeIndex = -1;
+  let menu = null;
+  let list = null;
+  let pill = null;
+  let optionEls = [];
+  let closeTimer = 0;
+  const id = `glide-${++glideId}`;
+
+  root.classList.add('glide-select');
+  root.innerHTML = `
+    <button class="glide-select__trigger" type="button" role="combobox" aria-haspopup="listbox"
+      aria-expanded="false" aria-controls="${id}-menu" aria-label="${config.ariaLabel || '选择'}">
+      <span class="glide-select__label"></span>
+      <span class="glide-select__chevron" aria-hidden="true">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.4 4.3 6 7.9l3.6-3.6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+    </button>
+    <span class="glide-select__sr" aria-live="polite"></span>
+  `;
+
+  const trigger = $('.glide-select__trigger', root);
+  const label = $('.glide-select__label', root);
+  const sr = $('.glide-select__sr', root);
+
+  const selectedIndex = () => items.findIndex(item => item.value === current);
+
+  const updateLabel = () => {
+    const index = selectedIndex();
+    const selected = items[index];
+    label.textContent = selected ? selected.label : (config.placeholder || '请选择');
+    label.toggleAttribute('data-empty', !selected);
+    sr.textContent = `${config.ariaLabel || '选择'}：${selected ? selected.label : '未选择'}`;
+  };
+
+  const positionMenu = () => {
+    if (!menu || !isOpen) return;
+    const rect = trigger.getBoundingClientRect();
+    const width = Math.min(Math.max(rect.width, Number(config.menuWidth) || 0), window.innerWidth - 16);
+    menu.style.width = `${width}px`;
+    const height = menu.offsetHeight;
+    const gap = 6;
+    let top = rect.bottom + gap;
+    let side = 'bottom';
+    if (top + height > window.innerHeight - 8 && rect.top - height - gap > 8) {
+      top = rect.top - height - gap;
+      side = 'top';
+    }
+    top = clamp(top, 8, Math.max(8, window.innerHeight - height - 8));
+    let left = config.align === 'right' ? rect.right - width : rect.left;
+    left = clamp(left, 8, Math.max(8, window.innerWidth - width - 8));
+    menu.style.top = `${top}px`;
+    menu.style.left = `${left}px`;
+    menu.style.transformOrigin = `${side === 'bottom' ? 'top' : 'bottom'} ${config.align === 'right' ? 'right' : 'left'}`;
+  };
+
+  const paintSelection = () => {
+    if (!menu) return;
+    optionEls.forEach((option, index) => {
+      option.setAttribute('aria-selected', String(index === selectedIndex()));
+      const check = $('.glide-select__check', option);
+      if (check) check.toggleAttribute('data-on', index === selectedIndex());
+    });
+  };
+
+  const setActive = (index, instant = false, scroll = false) => {
+    if (!menu || !optionEls.length) return;
+    activeIndex = clamp(index, 0, optionEls.length - 1);
+    optionEls.forEach((option, optionIndex) => {
+      option.classList.toggle('is-active', optionIndex === activeIndex);
+    });
+    trigger.setAttribute('aria-activedescendant', optionEls[activeIndex].id);
+    if (pill) {
+      const row = optionEls[0].offsetHeight || 34;
+      if (instant) pill.style.transition = 'none';
+      pill.style.transform = `translateY(${activeIndex * (row + 1)}px)`;
+      pill.style.opacity = '1';
+      if (instant) {
+        void pill.offsetHeight;
+        pill.style.transition = '';
+      }
+    }
+    if (scroll) {
+      const option = optionEls[activeIndex];
+      const top = option.offsetTop;
+      if (top < list.scrollTop) list.scrollTop = top;
+      else if (top + option.offsetHeight > list.scrollTop + list.clientHeight) {
+        list.scrollTop = top + option.offsetHeight - list.clientHeight;
+      }
+    }
+  };
+
+  const buildMenu = () => {
+    menu = document.createElement('div');
+    menu.className = 'glide-select__menu';
+    menu.id = `${id}-menu`;
+    menu.setAttribute('role', 'presentation');
+    menu.style.setProperty('--gs-row', '34px');
+    menu.style.setProperty('--gs-inner-radius', '7px');
+    menu.style.setProperty('--gs-radius', '10px');
+
+    list = document.createElement('div');
+    list.className = 'glide-select__list';
+    list.setAttribute('role', 'listbox');
+    list.setAttribute('aria-label', config.ariaLabel || '选择');
+
+    pill = document.createElement('span');
+    pill.className = 'glide-select__pill';
+    pill.setAttribute('aria-hidden', 'true');
+    list.append(pill);
+
+    optionEls = items.map((item, index) => {
+      const option = document.createElement('div');
+      option.className = 'glide-select__option';
+      option.id = `${id}-option-${index}`;
+      option.dataset.index = String(index);
+      option.setAttribute('role', 'option');
+      option.setAttribute('aria-selected', String(item.value === current));
+
+      const name = document.createElement('span');
+      name.className = 'glide-select__name';
+      name.textContent = item.label;
+      option.append(name);
+
+      if (item.tag) {
+        const tag = document.createElement('span');
+        tag.className = 'glide-select__tag';
+        tag.textContent = item.tag;
+        option.append(tag);
+      }
+
+      const check = document.createElement('span');
+      check.className = 'glide-select__check';
+      if (item.value === current) check.setAttribute('data-on', '');
+      check.textContent = '✓';
+      check.setAttribute('aria-hidden', 'true');
+      option.append(check);
+
+      return option;
+    });
+
+    list.append(...optionEls);
+    menu.append(list);
+    document.body.append(menu);
+
+    list.addEventListener('pointerover', event => {
+      const option = event.target.closest('.glide-select__option');
+      if (!option) return;
+      if (event.pointerType === 'touch') return;
+      setActive(Number(option.dataset.index));
+    });
+
+    list.addEventListener('click', event => {
+      const option = event.target.closest('.glide-select__option');
+      if (!option) return;
+      choose(Number(option.dataset.index));
+    });
+
+    menu.addEventListener('pointerdown', event => event.stopPropagation());
+    paintSelection();
+  };
+
+  const removeMenu = () => {
+    if (!menu) return;
+    const oldMenu = menu;
+    menu = null;
+    list = null;
+    pill = null;
+    optionEls = [];
+    oldMenu.classList.remove('is-open');
+    window.setTimeout(() => oldMenu.remove(), 200);
+  };
+
+  const close = () => {
+    if (!isOpen) return;
+    isOpen = false;
+    window.clearTimeout(closeTimer);
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.removeAttribute('aria-activedescendant');
+    root.removeAttribute('data-open');
+    document.removeEventListener('pointerdown', onOutsideDown, true);
+    document.removeEventListener('scroll', positionMenu, true);
+    window.removeEventListener('resize', positionMenu);
+    removeMenu();
+    if (activeGlideClose === close) activeGlideClose = null;
+  };
+
+  const choose = index => {
+    const item = items[index];
+    if (!item) return;
+    const changed = item.value !== current;
+    current = item.value;
+    updateLabel();
+    paintSelection();
+    if (changed) {
+      root.setAttribute('data-swap', '');
+      window.setTimeout(() => root.removeAttribute('data-swap'), 220);
+      config.onChange?.(current, item);
+    }
+    close();
+    trigger.focus({ preventScroll: true });
+  };
+
+  const open = () => {
+    if (isOpen) return;
+    if (activeGlideClose) activeGlideClose();
+    isOpen = true;
+    trigger.setAttribute('aria-expanded', 'true');
+    root.setAttribute('data-open', '');
+    buildMenu();
+    positionMenu();
+    const selected = selectedIndex();
+    setActive(selected >= 0 ? selected : 0, true, true);
+    requestAnimationFrame(() => menu?.classList.add('is-open'));
+    document.addEventListener('pointerdown', onOutsideDown, true);
+    document.addEventListener('scroll', positionMenu, true);
+    window.addEventListener('resize', positionMenu);
+    activeGlideClose = close;
+  };
+
+  function onOutsideDown(event) {
+    if (root.contains(event.target) || (menu && menu.contains(event.target))) return;
+    close();
+  }
+
+  const setValue = value => {
+    current = String(value);
+    updateLabel();
+    paintSelection();
+    if (isOpen) close();
+  };
+
+  const setOptions = (options, value) => {
+    if (isOpen) close();
+    items = (options || []).map(normalizeGlideOption);
+    if (value !== undefined) current = String(value);
+    if (!items.some(item => item.value === current)) current = items[0]?.value ?? '';
+    updateLabel();
+  };
+
+  updateLabel();
+
+  trigger.addEventListener('pointerdown', event => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    root.classList.add('is-pointer');
+    trigger.focus({ preventScroll: true });
+    if (isOpen) close();
+    else open();
+  });
+
+  trigger.addEventListener('keydown', event => {
+    root.classList.remove('is-pointer');
+    const key = event.key;
+    if (!isOpen) {
+      if (['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(key)) {
+        event.preventDefault();
+        open();
+      }
+      return;
+    }
+
+    if (key === 'ArrowDown' || key === 'ArrowUp') {
+      event.preventDefault();
+      const start = activeIndex < 0 ? Math.max(0, selectedIndex()) : activeIndex;
+      setActive(start + (key === 'ArrowDown' ? 1 : -1), false, true);
+    } else if (key === 'Home' || key === 'End') {
+      event.preventDefault();
+      setActive(key === 'Home' ? 0 : items.length - 1, false, true);
+    } else if (key === 'Enter' || key === ' ') {
+      event.preventDefault();
+      choose(activeIndex);
+    } else if (key === 'Escape' || key === 'Tab') {
+      if (key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      close();
+    }
+  });
+
+  return {
+    getValue: () => current,
+    setValue,
+    setOptions,
+    close,
+    root,
+    trigger
+  };
+}
+
+function setupGlideSelects() {
+  if (!dom.categoryGlide || !dom.dateYear || !dom.dateMonth || !dom.dateDay) return;
+
+  categoryPicker = createGlideSelect(dom.categoryGlide, {
+    options: CATEGORIES.map(category => ({ value: category, label: category })),
+    value: '远方',
+    ariaLabel: '选择图片类目',
+    onChange: value => {
+      dom.fieldCategory.value = value;
+    }
+  });
+  dom.fieldCategory.value = '远方';
+
+  const today = new Date();
+  const stateDate = {
+    year: today.getFullYear(),
+    month: today.getMonth() + 1,
+    day: today.getDate()
+  };
+
+  const yearNow = today.getFullYear();
+  const years = Array.from({ length: 42 }, (_, index) => yearNow - index);
+  const monthOptions = Array.from({ length: 12 }, (_, index) => {
+    const month = index + 1;
+    return { value: String(month), label: `${month}月`, tag: month === today.getMonth() + 1 ? '本月' : '' };
+  });
+
+  const syncDate = () => {
+    dom.fieldDate.value = `${stateDate.year}-${pad(stateDate.month)}-${pad(stateDate.day)}`;
+  };
+
+  const dayOptions = () => {
+    const total = new Date(stateDate.year, stateDate.month, 0).getDate();
+    if (stateDate.day > total) stateDate.day = total;
+    return Array.from({ length: total }, (_, index) => {
+      const day = index + 1;
+      const weekday = new Date(stateDate.year, stateDate.month - 1, day).toLocaleDateString('zh-CN', { weekday: 'short' });
+      return {
+        value: String(day),
+        label: `${pad(day)}日`,
+        tag: day === today.getDate() && stateDate.month === today.getMonth() + 1 && stateDate.year === today.getFullYear() ? '今天' : weekday
+      };
+    });
+  };
+
+  const yearPicker = createGlideSelect(dom.dateYear, {
+    options: years.map(year => ({ value: String(year), label: String(year), tag: year === yearNow ? '今年' : '' })),
+    value: String(stateDate.year),
+    ariaLabel: '选择拍摄年份',
+    menuWidth: 120,
+    onChange: value => {
+      stateDate.year = Number(value);
+      refreshDays();
+    }
+  });
+
+  const monthPicker = createGlideSelect(dom.dateMonth, {
+    options: monthOptions,
+    value: String(stateDate.month),
+    ariaLabel: '选择拍摄月份',
+    menuWidth: 108,
+    onChange: value => {
+      stateDate.month = Number(value);
+      refreshDays();
+    }
+  });
+
+  let dayPicker = null;
+  const refreshDays = () => {
+    const options = dayOptions();
+    dayPicker.setOptions(options, String(stateDate.day));
+    syncDate();
+  };
+
+  dayPicker = createGlideSelect(dom.dateDay, {
+    options: dayOptions(),
+    value: String(stateDate.day),
+    ariaLabel: '选择拍摄日期',
+    menuWidth: 112,
+    onChange: value => {
+      stateDate.day = Number(value);
+      syncDate();
+    }
+  });
+
+  const setDate = iso => {
+    const parsed = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+    const date = parsed ? new Date(Number(parsed[1]), Number(parsed[2]) - 1, Number(parsed[3])) : new Date();
+    stateDate.year = date.getFullYear();
+    stateDate.month = date.getMonth() + 1;
+    stateDate.day = date.getDate();
+    if (!years.includes(stateDate.year)) {
+      years.unshift(stateDate.year);
+      yearPicker.setOptions(
+        years.map(year => ({ value: String(year), label: String(year), tag: year === yearNow ? '今年' : '' })),
+        String(stateDate.year)
+      );
+    } else {
+      yearPicker.setValue(String(stateDate.year));
+    }
+    monthPicker.setValue(String(stateDate.month));
+    refreshDays();
+    dayPicker.setValue(String(stateDate.day));
+    syncDate();
+  };
+
+  datePicker = { setDate };
+  setDate(todayISO());
+}
+
+function closeAllGlideSelects() {
+  if (activeGlideClose) activeGlideClose();
+}
+
+/* ---------------------------------------------------------
+   14. Upload
+   --------------------------------------------------------- */
+
+function openUpload() {
+  if (uploadOpen) return;
+  if (detailOpen) closeDetail(true);
+
+  resetUploadForm();
+  uploadOpen = true;
+  state.lastFocus = document.activeElement;
+  dom.uploadNo.textContent = `/ ${pad(allQuests().length + 1)}`;
+  dom.uploadLayer.classList.add('is-open');
+  dom.uploadLayer.setAttribute('aria-hidden', 'false');
+  dom.body.classList.add('is-locked');
+
+  window.setTimeout(() => {
+    dom.dropzone.focus({ preventScroll: true });
+  }, 160);
+}
+
+function closeUpload(skipFocus = false) {
+  if (!uploadOpen) return;
+  closeAllGlideSelects();
+  uploadOpen = false;
+  dom.uploadLayer.classList.remove('is-open');
+  dom.uploadLayer.setAttribute('aria-hidden', 'true');
+  if (!detailOpen) dom.body.classList.remove('is-locked');
+  if (!skipFocus && state.lastFocus && document.contains(state.lastFocus)) {
+    state.lastFocus.focus({ preventScroll: true });
+  }
+}
+
+function resetUploadForm() {
+  state.pendingImage = '';
+  dom.uploadForm.reset();
+  dom.fieldDate.value = todayISO();
+  dom.fieldTime.value = currentTime();
+  dom.fieldCategory.value = '远方';
+  categoryPicker?.setValue('远方');
+  datePicker?.setDate(todayISO());
+  dom.fileInput.value = '';
+  dom.dropEmpty.hidden = false;
+  dom.dropPreview.hidden = true;
+  dom.previewImg.removeAttribute('src');
+  dom.dropzone.classList.remove('is-invalid', 'is-dragging');
+  $('.field', dom.uploadForm)?.classList.remove('is-invalid');
+  $$('.field', dom.uploadForm).forEach(field => field.classList.remove('is-invalid'));
+  dom.feelingCount.textContent = '0';
+  dom.publishButton.disabled = false;
+  $('.publish-button__label', dom.publishButton).textContent = '发射这条支线';
+}
+
+function setupUpload() {
+  $$('.js-open-upload').forEach(button => button.addEventListener('click', openUpload));
+
+  dom.uploadClose.addEventListener('click', () => closeUpload());
+  $$('[data-close-upload]').forEach(element => element.addEventListener('click', () => closeUpload()));
+
+  dom.fileInput.addEventListener('change', event => {
+    const file = event.target.files?.[0];
+    if (file) handleFile(file);
+  });
+
+  dom.dropzone.addEventListener('click', event => {
+    if (event.target === dom.replaceFile || dom.replaceFile.contains(event.target)) {
+      event.preventDefault();
+      dom.fileInput.click();
+    }
+  });
+
+  dom.replaceFile.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    dom.fileInput.click();
+  });
+
+  ['dragenter', 'dragover'].forEach(name => {
+    dom.dropzone.addEventListener(name, event => {
+      event.preventDefault();
+      dom.dropzone.classList.add('is-dragging');
+    });
+  });
+
+  ['dragleave', 'drop'].forEach(name => {
+    dom.dropzone.addEventListener(name, event => {
+      event.preventDefault();
+      dom.dropzone.classList.remove('is-dragging');
+    });
+  });
+
+  dom.dropzone.addEventListener('drop', event => {
+    const file = event.dataTransfer?.files?.[0];
+    if (file) handleFile(file);
+  });
+
+  dom.dropzone.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      dom.fileInput.click();
+    }
+  });
+
+  dom.fieldFeeling.addEventListener('input', () => {
+    dom.feelingCount.textContent = String(dom.fieldFeeling.value.length);
+  });
+
+  dom.fieldTitle.addEventListener('input', () => {
+    dom.fieldTitle.closest('.field').classList.remove('is-invalid');
+  });
+
+  dom.uploadForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    await submitUpload();
+  });
+}
+
+function isImageFile(file) {
+  if (!file) return false;
+  if (file.type && file.type.startsWith('image/')) return true;
+  return /\.(jpe?g|png|webp|gif|avif|bmp)$/i.test(file.name);
+}
+
+async function handleFile(file) {
+  if (!isImageFile(file)) {
+    showToast('请选择 JPG、PNG、WEBP、GIF 或 AVIF 图片');
+    return;
+  }
+
+  if (file.size > MAX_FILE_BYTES) {
+    showToast('照片超过 20MB，换一张小一点的吧');
+    dom.dropzone.classList.add('is-invalid');
+    return;
+  }
+
+  dom.dropzone.classList.remove('is-invalid');
+  const strong = $('strong', dom.dropEmpty);
+  const originalStrong = strong?.textContent;
+  if (strong) strong.textContent = '正在处理这张照片…';
+  dom.dropEmpty.style.opacity = '0.55';
+
+  try {
+    const dataUrl = await compressImage(file);
+    state.pendingImage = dataUrl;
+    dom.previewImg.src = dataUrl;
+    dom.fileName.textContent = file.name;
+    dom.fileMeta.textContent = `${(file.size / 1024 / 1024).toFixed(1)} MB · 已优化`;
+    dom.dropEmpty.hidden = true;
+    dom.dropPreview.hidden = false;
+  } catch (error) {
+    console.error(error);
+    showToast('照片处理失败，请换一张 JPG 或 PNG 试试');
+  } finally {
+    if (strong && originalStrong) strong.textContent = originalStrong;
+    dom.dropEmpty.style.opacity = '';
+    dom.fileInput.value = '';
+  }
+}
+
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        try {
+          const maxSide = 1800;
+          const ratio = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+          const width = Math.max(1, Math.round(image.naturalWidth * ratio));
+          const height = Math.max(1, Math.round(image.naturalHeight * ratio));
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext('2d', { alpha: false });
+          context.fillStyle = '#0d0b09';
+          context.fillRect(0, 0, width, height);
+          context.drawImage(image, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.84);
+          if (!dataUrl || dataUrl.length < 32) throw new Error('Empty canvas export');
+          resolve(dataUrl);
+        } catch (error) {
+          reject(error);
+        }
+      };
+      image.onerror = () => reject(new Error('Image could not be decoded'));
+      image.src = String(reader.result);
+    };
+
+    reader.onerror = () => reject(reader.error || new Error('File could not be read'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function submitUpload() {
+  const title = dom.fieldTitle.value.trim();
+  const place = dom.fieldPlace.value.trim();
+  const feeling = dom.fieldFeeling.value.trim();
+  const dateISO = dom.fieldDate.value || todayISO();
+
+  if (!state.pendingImage) {
+    dom.dropzone.classList.add('is-invalid');
+    dom.dropzone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showToast('先放一张照片进来，支线才有入口');
+    return;
+  }
+
+  if (!title) {
+    dom.fieldTitle.closest('.field').classList.add('is-invalid');
+    dom.fieldTitle.focus();
+    showToast('给这条支线起一个名字吧');
+    return;
+  }
+
+  const quest = {
+    id: `u_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    title,
+    date: isoToDisplay(dateISO),
+    iso: dateISO,
+    time: dom.fieldTime.value || currentTime(),
+    place: place || '某个不知名的地方',
+    stamp: `PERSONAL ARCHIVE · ${isoToDisplay(dateISO)}`,
+    category: CATEGORIES.includes(dom.fieldCategory.value) ? dom.fieldCategory.value : '日常',
+    feeling: feeling || '有些时刻来不及描述，只能先把它留下来。',
+    image: state.pendingImage,
+    baseScore: 0,
+    baseVotes: 0,
+    isUser: true,
+    createdAt: Date.now()
+  };
+
+  dom.publishButton.disabled = true;
+  $('.publish-button__label', dom.publishButton).textContent = '正在发射…';
+
+  try {
+    await persistUpload(quest);
+    state.uploads.unshift(quest);
+    state.filter = 'all';
+    $$('.filter', dom.filters).forEach(button => button.classList.toggle('is-active', button.dataset.filter === 'all'));
+    closeUpload(true);
+    renderArchive();
+    showToast('支线已加入档案，背景里多了一张照片', '打开', () => openDetail(quest.id), 5200);
+  } catch (error) {
+    console.error(error);
+    dom.publishButton.disabled = false;
+    $('.publish-button__label', dom.publishButton).textContent = '发射这条支线';
+    showToast('保存失败，浏览器存储空间可能不足');
+  }
+}
+
+/* ---------------------------------------------------------
+   14. Sling upload button
+   --------------------------------------------------------- */
+
+function setupSling() {
+  const sling = {
+    dragging: false,
+    moved: false,
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    x: 0,
+    y: 0,
+    armed: false
+  };
+
+  const maxPull = 56;
+  const armAt = 34;
+
+  const setBands = (x, y) => {
+    const distance = Math.hypot(x, y);
+    if (distance < 5) {
+      dom.slingBandA.setAttribute('d', '');
+      dom.slingBandB.setAttribute('d', '');
+      dom.slingArc.style.opacity = '0';
+      return;
+    }
+
+    const wellRadius = 43;
+    const padRadius = 38.5;
+    const angle = Math.atan2(y, x);
+    const tangent = Math.acos(clamp((wellRadius - padRadius) / distance, -1, 1));
+    const paths = [1, -1].map(direction => {
+      const theta = angle + tangent * direction;
+      const startX = wellRadius * Math.cos(theta);
+      const startY = wellRadius * Math.sin(theta);
+      const endX = x + padRadius * Math.cos(theta);
+      const endY = y + padRadius * Math.sin(theta);
+      return `M${startX.toFixed(2)},${startY.toFixed(2)} L${endX.toFixed(2)},${endY.toFixed(2)}`;
+    });
+
+    dom.slingBandA.setAttribute('d', paths[0]);
+    dom.slingBandB.setAttribute('d', paths[1]);
+
+    const power = clamp(distance / maxPull, 0, 1);
+    dom.slingBandB.style.opacity = String(power);
+    dom.slingArc.style.opacity = power > 0.03 ? '1' : '0';
+    dom.slingArc.style.strokeDasharray = `${power.toFixed(3)} 1`;
+  };
+
+  const moveTo = (x, y) => {
+    const rawDistance = Math.hypot(x, y);
+    const distance = maxPull * Math.tanh(rawDistance / maxPull);
+    const ux = rawDistance > 0 ? x / rawDistance : 0;
+    const uy = rawDistance > 0 ? y / rawDistance : 0;
+    const nx = ux * distance;
+    const ny = uy * distance;
+
+    sling.x = nx;
+    sling.y = ny;
+    dom.slingPad.style.setProperty('--sx', `${nx.toFixed(2)}px`);
+    dom.slingPad.style.setProperty('--sy', `${ny.toFixed(2)}px`);
+    setBands(nx, ny);
+
+    const armed = distance >= armAt;
+    if (armed !== sling.armed) {
+      sling.armed = armed;
+      dom.slingPad.toggleAttribute('data-armed', armed);
+    }
+  };
+
+  const reset = () => {
+    sling.dragging = false;
+    sling.moved = false;
+    sling.pointerId = null;
+    sling.armed = false;
+    dom.slingPad.removeAttribute('data-held');
+    dom.slingPad.removeAttribute('data-armed');
+    dom.slingPad.style.setProperty('--sx', '0px');
+    dom.slingPad.style.setProperty('--sy', '0px');
+    dom.slingArc.style.opacity = '0';
+    dom.slingBandA.setAttribute('d', '');
+    dom.slingBandB.setAttribute('d', '');
+    sling.x = 0;
+    sling.y = 0;
+  };
+
+  const burst = () => {
+    const colors = ['#f26b4b', '#f2eee5', '#e7b36a'];
+    for (let index = 0; index < 16; index += 1) {
+      const dot = document.createElement('span');
+      dot.className = 'sling__burst';
+      dot.style.background = colors[index % colors.length];
+      dom.sling.append(dot);
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 50 + Math.random() * 95;
+      const x = Math.cos(angle) * distance;
+      const y = Math.sin(angle) * distance;
+      const size = 3 + Math.random() * 4;
+      dot.style.width = `${size}px`;
+      dot.style.height = `${size}px`;
+      dot.animate(
+        [
+          { transform: 'translate(-50%, -50%) scale(1)', opacity: 1 },
+          { transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) scale(.15)`, opacity: 0 }
+        ],
+        { duration: 560 + Math.random() * 280, easing: 'cubic-bezier(.18,.7,.25,1)', fill: 'forwards' }
+      ).finished.then(() => dot.remove()).catch(() => dot.remove());
+    }
+  };
+
+  dom.slingPad.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || sling.dragging) return;
+    event.preventDefault();
+    sling.dragging = true;
+    sling.pointerId = event.pointerId;
+    sling.startX = event.clientX;
+    sling.startY = event.clientY;
+    sling.moved = false;
+    sling.armed = false;
+    dom.slingPad.setAttribute('data-held', '');
+    dom.slingPad.style.transition = 'none';
+    try {
+      dom.slingPad.setPointerCapture(event.pointerId);
+    } catch (error) {
+      /* ignore */
+    }
+  });
+
+  dom.slingPad.addEventListener('pointermove', event => {
+    if (!sling.dragging || event.pointerId !== sling.pointerId) return;
+    const dx = event.clientX - sling.startX;
+    const dy = event.clientY - sling.startY;
+    if (!sling.moved && Math.hypot(dx, dy) > 5) {
+      sling.moved = true;
+      sling.startX = event.clientX - dx;
+      sling.startY = event.clientY - dy;
+    }
+    if (sling.moved) moveTo(dx, dy);
+  });
+
+  const release = event => {
+    if (!sling.dragging || event.pointerId !== sling.pointerId) return;
+    const fire = sling.armed;
+    const tapped = !sling.moved;
+    const pointerId = sling.pointerId;
+
+    sling.dragging = false;
+    sling.pointerId = null;
+    try {
+      if (dom.slingPad.hasPointerCapture(pointerId)) {
+        dom.slingPad.releasePointerCapture(pointerId);
+      }
+    } catch (error) {
+      /* ignore */
+    }
+
+    dom.slingPad.removeAttribute('data-held');
+    dom.slingPad.removeAttribute('data-armed');
+    dom.slingPad.style.transition = '';
+    dom.slingPad.style.setProperty('--sx', '0px');
+    dom.slingPad.style.setProperty('--sy', '0px');
+    dom.slingArc.style.opacity = '0';
+    dom.slingBandA.setAttribute('d', '');
+    dom.slingBandB.setAttribute('d', '');
+    sling.armed = false;
+
+    if (fire) {
+      burst();
+      window.setTimeout(openUpload, 190);
+    } else if (tapped) {
+      openUpload();
+    }
+  };
+
+  dom.slingPad.addEventListener('pointerup', release);
+  dom.slingPad.addEventListener('pointercancel', () => {
+    sling.dragging = false;
+    dom.slingPad.removeAttribute('data-held');
+    dom.slingPad.removeAttribute('data-armed');
+    dom.slingPad.style.transition = '';
+    dom.slingPad.style.setProperty('--sx', '0px');
+    dom.slingPad.style.setProperty('--sy', '0px');
+    dom.slingArc.style.opacity = '0';
+    dom.slingBandA.setAttribute('d', '');
+    dom.slingBandB.setAttribute('d', '');
+  });
+
+  dom.slingPad.addEventListener('click', event => {
+    if (event.detail === 0) openUpload();
+  });
+}
+
+/* ---------------------------------------------------------
+   15. Click spark + cards / reveal setup
+   --------------------------------------------------------- */
+
+function setupSparkCanvas() {
+  const canvas = dom.sparkCanvas;
+  if (!canvas) return;
+  const context = canvas.getContext('2d');
+  const particles = [];
+  let raf = 0;
+  let dpr = 1;
+
+  const resize = () => {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.floor(window.innerWidth * dpr);
+    canvas.height = Math.floor(window.innerHeight * dpr);
+    canvas.style.width = `${window.innerWidth}px`;
+    canvas.style.height = `${window.innerHeight}px`;
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+
+  const draw = () => {
+    context.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    for (let index = particles.length - 1; index >= 0; index -= 1) {
+      const particle = particles[index];
+      particle.life -= 0.022;
+      if (particle.life <= 0) {
+        particles.splice(index, 1);
+        continue;
+      }
+      particle.x += particle.vx;
+      particle.y += particle.vy;
+      particle.vx *= 0.965;
+      particle.vy *= 0.965;
+      context.beginPath();
+      context.arc(particle.x, particle.y, particle.size * particle.life, 0, Math.PI * 2);
+      context.fillStyle = `rgba(${particle.color}, ${particle.life})`;
+      context.fill();
+    }
+    if (particles.length) {
+      raf = requestAnimationFrame(draw);
+    } else {
+      raf = 0;
+      context.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    }
+  };
+
+  window.addEventListener('resize', resize);
+  resize();
+
+  document.addEventListener('pointerdown', event => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (event.pointerType === 'touch') return;
+    if (event.target.closest('input, textarea, select')) return;
+
+    const count = 9;
+    for (let index = 0; index < count; index += 1) {
+      const angle = (Math.PI * 2 * index) / count + Math.random() * 0.35;
+      const speed = 1.5 + Math.random() * 2.8;
+      particles.push({
+        x: event.clientX,
+        y: event.clientY,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 1,
+        size: 1.5 + Math.random() * 2,
+        color: index % 3 === 0 ? '242, 107, 75' : '242, 238, 229'
+      });
+    }
+
+    if (!raf) raf = requestAnimationFrame(draw);
+  });
+}
+
+function setupReveals() {
+  $$('.reveal').forEach(element => {
+    if (element.dataset.delay) element.style.setProperty('--delay', `${element.dataset.delay}ms`);
+    observeReveal(element);
+  });
+}
+
+/* ---------------------------------------------------------
+   16. Global keyboard / focus
+   --------------------------------------------------------- */
+
+function getFocusable(container) {
+  return $$('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])', container)
+    .filter(element => element.offsetParent !== null);
+}
+
+function setupGlobalKeys() {
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      if (activeGlideClose) {
+        event.stopPropagation();
+        activeGlideClose();
+        return;
+      }
+      if (uploadOpen) {
+        closeUpload();
+        return;
+      }
+      if (detailOpen) {
+        closeDetail();
+        return;
+      }
+      if (dom.mobileMenu.classList.contains('is-open')) {
+        dom.menuButton.click();
+      }
+      return;
+    }
+
+    if (detailOpen && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+      if (event.target.closest('input, textarea, select, .peek-rating')) return;
+      event.preventDefault();
+      navigateDetail(event.key === 'ArrowRight' ? 1 : -1);
+      return;
+    }
+
+    if (event.key !== 'Tab') return;
+
+    const layer = uploadOpen ? dom.uploadLayer : detailOpen ? dom.detailLayer : null;
+    if (!layer) return;
+
+    const focusable = getFocusable(layer);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+}
+
+/* ---------------------------------------------------------
+   17. Rendering / boot
+   --------------------------------------------------------- */
+
+function renderArchive() {
+  buildGrid();
+  renderGallery();
+  updateStats();
+}
+
+async function init() {
+  setupHeader();
+  setupMenu();
+  setupFilters();
+  setupReflectiveCard();
+  setupDetail();
+  setupGlideSelects();
+  setupUpload();
+  setupFooterActions();
+  setupSling();
+  setupGlobalKeys();
+  setupSparkCanvas();
+  setupStats();
+  setupReveals();
+
+  renderArchive();
+  finishIntro();
+  setupGridMotion();
+
+  const uploadsReady = loadUploads();
+  uploadsReady.then(() => {
+    renderArchive();
+    window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      const questId = params.get('quest');
+      if (questId && findQuest(questId) && !state.hidden.has(questId)) {
+        openDetail(questId);
+      } else if (questId) {
+        setQuestParam(null);
+      }
+    }, 450);
+  }).catch(error => {
+    console.warn('Could not restore uploads:', error);
+  });
+}
+
+init().catch(error => {
+  console.error('Archive boot failed:', error);
+  finishIntro();
+  showToast('档案加载遇到一点问题，请刷新重试');
+});
