@@ -1,5 +1,5 @@
 /* =========================================================
-   人生支线 · SIDE QUESTS
+   杭电支线 · HDU SIDE QUESTS
    Vanilla JS — grid motion, detail, ratings, hold-to-delete, upload
    ========================================================= */
 
@@ -11,245 +11,246 @@
 
 const PRESETS = [
   {
-    id: 'q01',
-    title: '把日落看完',
-    date: '2025.10.02',
-    iso: '2025-10-02',
-    time: '17:42',
-    place: '福建 · 平潭岛',
-    stamp: 'FUJIAN · PINGTAN',
-    category: '远方',
-    image: 'assets/photos/sea.jpg',
-    feeling: '本来要去另一个沙滩，导航错了一个路口，索性沿着海堤一直走。太阳掉下去的那十分钟，谁都没有讲话。那天我明白，有些路走错，是为了刚好赶上。',
+    id: 'h01',
+    title: '图书馆闭馆前',
+    date: '2026.11.02',
+    iso: '2026-11-02',
+    time: '21:40',
+    place: '杭电 · 图书馆四楼',
+    stamp: 'HDU · LIBRARY',
+    category: '校园',
+    image: 'assets/photos/library.jpg',
+    feeling: '闭馆音乐响起来之前，整层楼只剩翻书声。有人趴在桌上睡着了，我没叫醒他。那二十分钟，比一整天都安静。',
     baseScore: 4.8,
-    baseVotes: 136
+    baseVotes: 132
   },
   {
-    id: 'q02',
-    title: '湖心没有信号',
-    date: '2024.09.18',
-    iso: '2024-09-18',
-    time: '11:20',
-    place: '意大利 · 布拉耶斯湖',
-    stamp: 'DOLOMITES · LAGO DI BRAIES',
-    category: '远方',
-    image: 'assets/photos/mountain.jpg',
-    feeling: '船桨划破水面的声音，比任何消息提示都好听。把手机关掉的两个小时里，我只负责把这艘船划回岸边。',
-    baseScore: 4.9,
-    baseVotes: 208
-  },
-  {
-    id: 'q03',
-    title: '被低音炮击中的夜晚',
-    date: '2023.08.12',
-    iso: '2023-08-12',
-    time: '22:05',
-    place: '上海 · 育音堂',
-    stamp: 'SHANGHAI · YUYINTANG',
+    id: 'h02',
+    title: '实验室的最后一盏灯',
+    date: '2026.11.01',
+    iso: '2026-11-01',
+    time: '01:20',
+    place: '杭电 · 实验室',
+    stamp: 'HDU · LAB',
     category: '深夜',
-    image: 'assets/photos/concert.jpg',
-    feeling: '挤在人群最后一排，看不清乐手，只看见无数举起的手。鼓点落下来的时候，胸口比耳朵先听见。',
-    baseScore: 4.6,
-    baseVotes: 92
+    image: 'assets/photos/lab.jpg',
+    feeling: '实验数据跑到第七遍还是不对。窗外天已经蒙蒙亮，楼下保安开始扫地。回宿舍的路上，突然觉得这个结果也没那么重要了。',
+    baseScore: 4.4,
+    baseVotes: 41
   },
   {
-    id: 'q04',
-    title: '第四杯手冲之后',
-    date: '2025.03.09',
-    iso: '2025-03-09',
+    id: 'h03',
+    title: '早八前十分钟',
+    date: '2026.10.28',
+    iso: '2026-10-28',
+    time: '07:52',
+    place: '杭电 · 第三教学楼',
+    stamp: 'HDU · TEACHING BUILDING',
+    category: '校园',
+    image: 'assets/photos/campus-hdu.jpg',
+    feeling: '早八前十分钟，教学楼还没完全醒。阳光先落在最后一排的桌子上，我在门口站了一会儿，才舍得进去。',
+    baseScore: 4.7,
+    baseVotes: 96
+  },
+  {
+    id: 'h04',
+    title: '食堂的最后一碗面',
+    date: '2026.10.16',
+    iso: '2026-10-16',
+    time: '12:35',
+    place: '杭电 · 食堂',
+    stamp: 'HDU · CANTEEN',
+    category: '校园',
+    image: 'assets/photos/canteen.jpg',
+    feeling: '下雨天，食堂排队排到门口。拼桌的陌生同学把纸巾推给我，说“你头发滴水了”。那碗面后来忘了味道，只记得这句话。',
+    baseScore: 4.5,
+    baseVotes: 78
+  },
+  {
+    id: 'h05',
+    title: '末班公交没有等我',
+    date: '2026.10.11',
+    iso: '2026-10-11',
+    time: '23:05',
+    place: '下沙 · 文海南路',
+    stamp: 'XIASHA · WENHAI ROAD',
+    category: '下沙',
+    image: 'assets/photos/bus.jpg',
+    feeling: '末班公交从眼前开走，手机还剩 12% 的电。索性沿着学源街走回去，路灯把影子拉得很长。下沙的夜风比想象中温柔。',
+    baseScore: 4.3,
+    baseVotes: 28
+  },
+  {
+    id: 'h06',
+    title: '球场关灯之前',
+    date: '2026.09.24',
+    iso: '2026-09-24',
+    time: '21:15',
+    place: '杭电 · 篮球场',
+    stamp: 'HDU · BASKETBALL COURT',
+    category: '校园',
+    image: 'assets/photos/basketball.jpg',
+    feeling: '球场关灯前最后一球，球在篮筐上转了两圈才进。我们喊得整栋楼都听见，第二天早八差点没起来。',
+    baseScore: 4.6,
+    baseVotes: 64
+  },
+  {
+    id: 'h07',
+    title: '第一次和社团出去',
+    date: '2026.09.20',
+    iso: '2026-09-20',
+    time: '17:40',
+    place: '杭州 · 九溪',
+    stamp: 'HANGZHOU · JIUXI',
+    category: '相遇',
+    image: 'assets/photos/friends.jpg',
+    feeling: '社团招新时随便填的报名表，一个月后把我带到了九溪。大家在山路上互相等，回程时已经约好了下一次。',
+    baseScore: 4.9,
+    baseVotes: 156
+  },
+  {
+    id: 'h08',
+    title: '第四杯咖啡之后',
+    date: '2026.09.15',
+    iso: '2026-09-15',
     time: '15:36',
-    place: '杭州 · 小河直街',
-    stamp: 'HANGZHOU · XIAOHE',
-    category: '日常',
+    place: '杭电 · 教学区咖啡店',
+    stamp: 'HDU · CAFE',
+    category: '校园',
     image: 'assets/photos/cafe.jpg',
-    feeling: '本来只是躲雨。老板请我喝了第四杯，说豆子再放就可惜了。我们聊到雨停，谁也没加微信。',
-    baseScore: 4.4,
+    feeling: '小组作业改到第四版，咖啡续到第四杯。有人说“算了先吃饭吧”，我们就在咖啡店吃起了外卖。最后拿了几分不记得了，但记得那晚笑得很累。',
+    baseScore: 4.5,
     baseVotes: 57
   },
   {
-    id: 'q05',
-    title: '凌晨两点的便利店',
-    date: '2025.11.23',
-    iso: '2025-11-23',
-    time: '02:17',
-    place: '东京 · 涩谷',
-    stamp: 'TOKYO · SHIBUYA',
-    category: '深夜',
-    image: 'assets/photos/city.jpg',
-    feeling: '错过末班车，在便利店门口吃完一碗关东煮。城市没有睡，只是换了一批人醒着。',
-    baseScore: 4.7,
-    baseVotes: 165
-  },
-  {
-    id: 'q06',
-    title: '雪落下来的时候',
-    date: '2024.01.07',
-    iso: '2024-01-07',
-    time: '09:10',
-    place: '北海道 · 美瑛',
-    stamp: 'HOKKAIDO · BIEI',
-    category: '远方',
-    image: 'assets/photos/snow.jpg',
-    feeling: '整个世界被按了静音。雪落在睫毛上，我站在那里，第一次觉得冷也可以是一种温柔。',
+    id: 'h09',
+    title: '宿舍熄灯之前',
+    date: '2026.09.08',
+    iso: '2026-09-08',
+    time: '22:10',
+    place: '杭电 · 生活区',
+    stamp: 'HDU · RESIDENCE',
+    category: '校园',
+    image: 'assets/photos/dorm.jpg',
+    feeling: '回到寝室已经快十一点。室友在赶实验报告，另一个人泡了面。我们聊到熄灯，也没聊出什么结果，但好像明天也没那么难熬了。',
     baseScore: 4.9,
-    baseVotes: 244
+    baseVotes: 143
   },
   {
-    id: 'q07',
-    title: '没有信号的 36 小时',
-    date: '2023.07.21',
-    iso: '2023-07-21',
-    time: '06:40',
-    place: '青海 · 青海湖',
-    stamp: 'QINGHAI · QINGHAI LAKE',
-    category: '远方',
-    image: 'assets/photos/camp.jpg',
-    feeling: '帐篷外是牛铃声和风。没有信号的两天，我重新学会了等待——等水开，等云散，等天黑。',
-    baseScore: 4.8,
-    baseVotes: 188
-  },
-  {
-    id: 'q08',
-    title: '沿着江边骑到没力气',
-    date: '2026.06.15',
-    iso: '2026-06-15',
+    id: 'h10',
+    title: '骑车去地铁站',
+    date: '2026.09.03',
+    iso: '2026-09-03',
     time: '18:25',
-    place: '武汉 · 东湖',
-    stamp: 'WUHAN · EAST LAKE',
-    category: '日常',
+    place: '下沙 · 学源街',
+    stamp: 'XIASHA · XUEYUAN STREET',
+    category: '下沙',
     image: 'assets/photos/bike.jpg',
-    feeling: '没有目的地，也没有记录里程。风从耳边过去的时候，我突然不想成为任何人，只想继续骑。',
-    baseScore: 4.2,
-    baseVotes: 48
-  },
-  {
-    id: 'q09',
-    title: '在旧书店躲了一场雨',
-    date: '2024.11.02',
-    iso: '2024-11-02',
-    time: '16:05',
-    place: '南京 · 先锋书店',
-    stamp: 'NANJING · LIBRAIRIE AVANT-GARDE',
-    category: '日常',
-    image: 'assets/photos/books.jpg',
-    feeling: '随手抽出一本旧书，扉页上有人写：1998 年，愿你自由。我把书买了下来，像接手一个陌生人的愿望。',
-    baseScore: 4.5,
+    feeling: '从教学区骑到地铁站，刚好赶上日落。共享单车的篮子嘎吱响，风把耳机线吹得乱七八糟。下沙的傍晚，适合什么都不想。',
+    baseScore: 4.6,
     baseVotes: 73
   },
   {
-    id: 'q10',
-    title: '有人把蛋糕抹在我脸上',
-    date: '2025.09.14',
-    iso: '2025-09-14',
-    time: '21:48',
-    place: '成都 · 玉林路',
-    stamp: 'CHENGDU · YULIN',
+    id: 'h11',
+    title: '操场上的音乐会',
+    date: '2026.05.22',
+    iso: '2026-05-22',
+    time: '20:30',
+    place: '杭电 · 田径场',
+    stamp: 'HDU · TRACK FIELD',
     category: '相遇',
-    image: 'assets/photos/friends.jpg',
-    feeling: '二十五岁生日，没订到想去的餐厅，最后在路边摊吃串。朋友把奶油抹在我脸上，我笑得像个傻子。',
-    baseScore: 4.9,
-    baseVotes: 201
+    image: 'assets/photos/concert.jpg',
+    feeling: '操场上的音乐会，没有座位，大家坐在草地上。唱到副歌的时候，所有人打开手机闪光灯，像一片很小的星海。',
+    baseScore: 4.8,
+    baseVotes: 121
   },
   {
-    id: 'q11',
-    title: '风把公路吹成了直线',
-    date: '2023.05.03',
-    iso: '2023-05-03',
-    time: '17:30',
-    place: '甘肃 · 敦煌',
-    stamp: 'GANSU · DUNHUANG',
-    category: '远方',
-    image: 'assets/photos/desert.jpg',
-    feeling: '戈壁没有参照物，方向盘握了很久也不觉得在前进。后来看见落日，才知道我们已经开了很远。',
-    baseScore: 4.6,
-    baseVotes: 97
-  },
-  {
-    id: 'q12',
-    title: '船到湖心，天开始蓝',
-    date: '2025.07.27',
-    iso: '2025-07-27',
-    time: '10:15',
-    place: '奥地利 · 哈尔施塔特',
-    stamp: 'AUSTRIA · HALLSTATT',
-    category: '远方',
-    image: 'assets/photos/lake.jpg',
-    feeling: '清晨的湖面像一块没有擦干的玻璃。船夫说这里最美的时候是冬天，我决定下次再来验证。',
-    baseScore: 4.7,
-    baseVotes: 154
-  },
-  {
-    id: 'q13',
-    title: '火车开进春天',
-    date: '2025.04.05',
-    iso: '2025-04-05',
-    time: '08:52',
-    place: '江西 · 婺源',
-    stamp: 'JIANGXI · WUYUAN',
-    category: '远方',
-    image: 'assets/photos/train.jpg',
-    feeling: '为了看油菜花，买了最慢的一班车。窗外每三分钟换一幅画，邻座阿姨分给我一个茶叶蛋。',
-    baseScore: 4.5,
-    baseVotes: 88
-  },
-  {
-    id: 'q14',
-    title: '第一次看见银河',
-    date: '2023.08.20',
-    iso: '2023-08-20',
+    id: 'h12',
+    title: '操场的星空',
+    date: '2026.04.18',
+    iso: '2026-04-18',
     time: '23:30',
-    place: '内蒙古 · 乌兰哈达',
-    stamp: 'INNER MONGOLIA · ULAN HADA',
+    place: '杭电 · 田径场',
+    stamp: 'HDU · TRACK FIELD',
     category: '深夜',
     image: 'assets/photos/stars.jpg',
-    feeling: '抬头的一瞬间，所有语言都失效了。我躺在火山岩上，觉得自己很小，但并没有因此难过。',
+    feeling: '夜跑结束，躺在操场草地上不想动。抬头发现能看到几颗星星，城市里原来也有。旁边有人在打电话，声音很轻。',
     baseScore: 5.0,
-    baseVotes: 312
+    baseVotes: 204
   },
   {
-    id: 'q15',
-    title: '在美术馆坐了一下午',
-    date: '2026.02.24',
-    iso: '2026-02-24',
-    time: '14:10',
-    place: '北京 · 798',
-    stamp: 'BEIJING · 798',
-    category: '日常',
-    image: 'assets/photos/museum.jpg',
-    feeling: '看不懂那幅画，但在它面前坐了很久。后来想通了：有些东西不需要被理解，只需要被允许存在。',
-    baseScore: 4.3,
-    baseVotes: 66
+    id: 'h13',
+    title: '在图书馆躲雨',
+    date: '2026.04.02',
+    iso: '2026-04-02',
+    time: '16:05',
+    place: '杭电 · 图书馆',
+    stamp: 'HDU · LIBRARY',
+    category: '校园',
+    image: 'assets/photos/books.jpg',
+    feeling: '在图书馆躲雨，随手抽出一本旧书。扉页上有人写“2019 级，祝你顺利”。我把书放回原位，像替一个陌生人保守秘密。',
+    baseScore: 4.6,
+    baseVotes: 69
   },
   {
-    id: 'q16',
-    title: '山脊上多走的一公里',
-    date: '2025.05.18',
-    iso: '2025-05-18',
-    time: '12:20',
-    place: '云南 · 雨崩',
-    stamp: 'YUNNAN · YUBENG',
-    category: '远方',
+    id: 'h14',
+    title: '周末去爬北高峰',
+    date: '2026.03.30',
+    iso: '2026-03-30',
+    time: '10:40',
+    place: '杭州 · 北高峰',
+    stamp: 'HANGZHOU · BEIGAOFENG',
+    category: '杭州',
     image: 'assets/photos/hike.jpg',
-    feeling: '队伍原路返回，我多走了那条岔路。一公里后看见整片山谷，风大得站不稳。有些风景只奖励不肯回头的人。',
+    feeling: '周末去爬北高峰，本来只想散心。爬到一半开始后悔，登顶之后又觉得值得。下山时买了一瓶冰水，喝出了庆功酒的感觉。',
+    baseScore: 4.7,
+    baseVotes: 94
+  },
+  {
+    id: 'h15',
+    title: '教学区的樱花开了',
+    date: '2026.03.24',
+    iso: '2026-03-24',
+    time: '16:20',
+    place: '杭电 · 教学区',
+    stamp: 'HDU · CAMPUS',
+    category: '校园',
+    image: 'assets/photos/sakura.jpg',
+    feeling: '教学区的樱花开了，朋友圈刷屏。我绕远路去拍了一张，结果最满意的是树下那辆旧自行车。春天好像每年都这样，短暂但准时。',
     baseScore: 4.8,
-    baseVotes: 176
+    baseVotes: 118
+  },
+  {
+    id: 'h16',
+    title: '返校的最后一班车',
+    date: '2026.02.23',
+    iso: '2026-02-23',
+    time: '19:10',
+    place: '杭州东站 · 站台',
+    stamp: 'HANGZHOU EAST · PLATFORM',
+    category: '下沙',
+    image: 'assets/photos/train-station.jpg',
+    feeling: '寒假结束，坐最后一班高铁回杭州。行李箱很重，站台上全是返校的学生。到站那一刻，突然觉得下沙的风也很亲切。',
+    baseScore: 4.7,
+    baseVotes: 88
   }
 ];
 
-const RATING_LABELS = ['路过', '有点意思', '值得绕路', '想收藏', '人生级别'];
+const RATING_LABELS = ['路过', '有点意思', '值得绕路', '想收藏', '杭电名场面'];
 const CATEGORY_NOTES = {
-  远方: '有些地方不是目的地，只是那天刚好想走远一点。',
-  日常: '日常不是空白，它只是还没有被认真命名。',
-  相遇: '人与人之间最短的路，往往是一次没有目的的相遇。',
-  深夜: '深夜把城市调成静音，才听得见自己。'
+  校园: '课表之外的那几步，才是大学生活真正的注脚。',
+  下沙: '下沙的风很大，但总有一段路值得多走。',
+  杭州: '杭州不只有西湖，还有学生周末偷偷跑出去的那半天。',
+  相遇: '在杭电，人与人之间最短的路，往往是一次没有目的的相遇。',
+  深夜: '深夜把杭电调成静音，才听得见自己。'
 };
-const CATEGORIES = ['远方', '日常', '相遇', '深夜'];
+const CATEGORIES = ['校园', '下沙', '杭州', '相遇', '深夜'];
 const LS_KEYS = {
-  ratings: 'sidequests.ratings.v1',
-  hidden: 'sidequests.hidden.v1',
-  fallbackUploads: 'sidequests.uploads.fallback.v1'
+  ratings: 'hdu-sidequests.ratings.v1',
+  hidden: 'hdu-sidequests.hidden.v1',
+  fallbackUploads: 'hdu-sidequests.uploads.fallback.v1'
 };
-const DB_NAME = 'sidequests-archive';
+const DB_NAME = 'hdu-sidequests-archive';
 const DB_STORE = 'photos';
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const HOLD_MS = 2000;
@@ -1293,7 +1294,7 @@ function renderDetail(quest) {
   dom.detailPlace.textContent = quest.place;
   dom.detailTitle.textContent = quest.title;
   dom.detailFeeling.textContent = quest.feeling || '有些时刻来不及描述，只能先把它留下来。';
-  dom.detailNote.textContent = CATEGORY_NOTES[quest.category] || CATEGORY_NOTES['日常'];
+  dom.detailNote.textContent = CATEGORY_NOTES[quest.category] || CATEGORY_NOTES['校园'];
   dom.detailMine.hidden = !quest.isUser;
   dom.holdDelete.removeAttribute('data-done');
   dom.holdDelete.removeAttribute('data-holding');
@@ -1313,7 +1314,7 @@ function renderDetail(quest) {
 
   renderRatingCard(quest);
 
-  document.title = `${quest.title} · 人生支线`;
+  document.title = `${quest.title} · 杭电支线`;
 }
 
 function navigateDetail(direction) {
@@ -1501,7 +1502,7 @@ function closeDetail(skipFocus = false) {
   dom.detailLayer.setAttribute('aria-hidden', 'true');
   if (!uploadOpen) dom.body.classList.remove('is-locked');
   setQuestParam(null);
-  document.title = '人生支线 · SIDE QUESTS';
+  document.title = '杭电支线 · HDU SIDE QUESTS';
 
   if (!skipFocus && state.lastFocus && document.contains(state.lastFocus)) {
     state.lastFocus.focus({ preventScroll: true });
@@ -2125,13 +2126,13 @@ function setupGlideSelects() {
 
   categoryPicker = createGlideSelect(dom.categoryGlide, {
     options: CATEGORIES.map(category => ({ value: category, label: category })),
-    value: '远方',
+    value: '校园',
     ariaLabel: '选择图片类目',
     onChange: value => {
       dom.fieldCategory.value = value;
     }
   });
-  dom.fieldCategory.value = '远方';
+  dom.fieldCategory.value = '校园';
 
   const today = new Date();
   const stateDate = {
@@ -2272,8 +2273,8 @@ function resetUploadForm() {
   dom.uploadForm.reset();
   dom.fieldDate.value = todayISO();
   dom.fieldTime.value = currentTime();
-  dom.fieldCategory.value = '远方';
-  categoryPicker?.setValue('远方');
+  dom.fieldCategory.value = '校园';
+  categoryPicker?.setValue('校园');
   datePicker?.setDate(todayISO());
   dom.fileInput.value = '';
   dom.dropEmpty.hidden = false;
@@ -2284,7 +2285,7 @@ function resetUploadForm() {
   $$('.field', dom.uploadForm).forEach(field => field.classList.remove('is-invalid'));
   dom.feelingCount.textContent = '0';
   dom.publishButton.disabled = false;
-  $('.publish-button__label', dom.publishButton).textContent = '发射这条支线';
+  $('.publish-button__label', dom.publishButton).textContent = '发射这条杭电支线';
 }
 
 function setupUpload() {
@@ -2456,7 +2457,7 @@ async function submitUpload() {
     time: dom.fieldTime.value || currentTime(),
     place: place || '某个不知名的地方',
     stamp: `PERSONAL ARCHIVE · ${isoToDisplay(dateISO)}`,
-    category: CATEGORIES.includes(dom.fieldCategory.value) ? dom.fieldCategory.value : '日常',
+    category: CATEGORIES.includes(dom.fieldCategory.value) ? dom.fieldCategory.value : '校园',
     feeling: feeling || '有些时刻来不及描述，只能先把它留下来。',
     image: state.pendingImage,
     baseScore: 0,
@@ -2479,7 +2480,7 @@ async function submitUpload() {
   } catch (error) {
     console.error(error);
     dom.publishButton.disabled = false;
-    $('.publish-button__label', dom.publishButton).textContent = '发射这条支线';
+    $('.publish-button__label', dom.publishButton).textContent = '发射这条杭电支线';
     showToast('保存失败，浏览器存储空间可能不足');
   }
 }
@@ -2572,7 +2573,7 @@ function setupSling() {
   };
 
   const burst = () => {
-    const colors = ['#f26b4b', '#f2eee5', '#e7b36a'];
+    const colors = ['#4d7cff', '#f2eee5', '#e7b36a'];
     for (let index = 0; index < 16; index += 1) {
       const dot = document.createElement('span');
       dot.className = 'sling__burst';
@@ -2743,7 +2744,7 @@ function setupSparkCanvas() {
         vy: Math.sin(angle) * speed,
         life: 1,
         size: 1.5 + Math.random() * 2,
-        color: index % 3 === 0 ? '242, 107, 75' : '242, 238, 229'
+        color: index % 3 === 0 ? '77, 124, 255' : '242, 238, 229'
       });
     }
 
