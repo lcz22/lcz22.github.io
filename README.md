@@ -70,6 +70,34 @@
 
 接入后把 `localStorage` 读写替换成 API 请求即可，前端其余交互可以保留。
 
+## FastAPI 后端（已准备）
+
+完整后端代码在 [`backend/`](backend/README.md)，目前用 SQLite 跑通接口，数据库地址可随时替换为 PostgreSQL：
+
+```text
+前端 GitHub Pages / OSS
+        ↓ HTTPS
+FastAPI（ECS / 阿里云）
+        ↓
+PostgreSQL（RDS 或 ECS 自建）
+        ↓
+OSS（照片）
+```
+
+已包含：
+
+- `GET /api/quests`、`GET /api/quests/{id}`：列表与详情；
+- `POST /api/quests`：multipart 上传照片并创建支线；
+- `PUT /api/quests/{id}/rating`：提交 / 修改评分；
+- `DELETE /api/quests/{id}/rating`：收回评分；
+- `DELETE /api/quests/{id}`：使用一次性 `manage_token` 删除自己的投稿；
+- `GET /api/stats`、`GET /api/categories`、`GET /api/health`；
+- Swagger 文档：`http://127.0.0.1:8000/docs`。
+
+数据库访问已抽象成 `QuestRepository`，当前实现是 SQLAlchemy；后续拿到 PostgreSQL 后只需修改 `backend/.env` 的 `DATABASE_URL`，然后执行 `python -m app.init_db`。
+
+> 目前前端页面仍使用原来的 localStorage / IndexedDB 数据层，尚未切换到 FastAPI；后端接口已独立可测试。用户提供数据库后再做前后端联调。
+
 ## 文件结构
 
 ```
@@ -79,6 +107,7 @@
 ├─ app.js                   数据、背景、评分、上传、删除、路由
 ├─ start-preview.bat        一键启动本地预览
 ├─ preview-server.mjs       Node 备用静态服务器
+├─ backend/                 FastAPI 后端（接口 + 数据库抽象）
 ├─ README.md
 └─ assets/
    ├─ favicon.svg
