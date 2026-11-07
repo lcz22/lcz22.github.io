@@ -28,6 +28,7 @@ class QuestOut(BaseModel):
     time: str
     place: str
     feeling: str
+    stamp: str
     category: Category
     image: str = Field(description="可直接放进 <img src> 的图片 URL")
     score: float | None

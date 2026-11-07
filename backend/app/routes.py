@@ -84,6 +84,7 @@ def to_out(record: QuestRecord) -> QuestOut:
         time=record.shot_time.strftime("%H:%M"),
         place=record.place,
         feeling=record.feeling,
+        stamp=record.stamp,
         category=record.category,  # validated at write time
         image=record.image_url,
         score=round(record.average_score, 1) if record.average_score is not None else None,
@@ -188,6 +189,7 @@ async def create_quest(
         shot_time=shot_time,
         place=place.strip() or "杭电 · 未命名地点",
         feeling=feeling.strip() or "有些时刻来不及描述，只能先把它留下来。",
+        stamp=f"PERSONAL ARCHIVE · {shot_date.strftime('%Y.%m.%d')}",
         category=category,
         image_url=stored.url,
         image_filename=stored.filename,

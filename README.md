@@ -22,6 +22,31 @@
 
 也可以双击 `start-preview.bat` 自动启动本地服务器并打开浏览器。如果端口被占用，关闭旧的命令行窗口后重试。
 
+### 本地完整联调
+
+1. 启动后端（第一次需安装依赖）：
+
+```powershell
+cd backend
+.\start-backend.bat
+```
+
+2. 第一次启动后，在另一个终端把 16 条预设内容写入 SQLite：
+
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+python -m app.seed
+```
+
+3. 启动前端：
+
+```powershell
+.\start-preview.bat
+```
+
+前端访问 `http://127.0.0.1:4173/` 会自动检测 `http://127.0.0.1:8000/api`。后端不可用时会自动回退到本地模式。
+
 ## 已实现的功能
 
 - **Grid Motion 背景**：4 行斜向照片墙持续漂移，鼠标移动会带来轻微视差与逐张照片的点亮效果；每一张背景照片都能点击进入详情。
@@ -54,25 +79,18 @@
 
 ## 数据存储与「共享」说明
 
-当前部署是 **GitHub Pages 纯静态站点**，没有后端：
+当前是双模式：
 
-- 评分记录：`localStorage`（键名 `hdu-sidequests.ratings.v1`）
-- 被隐藏的预设支线：`localStorage`（键名 `hdu-sidequests.hidden.v1`）
-- 用户上传的照片与文字：优先 IndexedDB；当浏览器禁用或阻塞 IndexedDB 时，自动降级到 `localStorage`。
+- **本地 FastAPI 可用时**：列表、评分、上传、删除走 FastAPI + SQLite，所有访问 `127.0.0.1:4173` 的浏览器共享同一份数据。
+- **FastAPI 不可用时**：自动回退到原来的 localStorage / IndexedDB 模式，GitHub Pages 线上页面仍然可以使用。
+- **被隐藏的预设支线**：仍保存在本地 `localStorage`（隐藏只是当前浏览器的个人视图）。
+- **访客评分身份**：自动生成一个 UUID，保存在本地并随 API 请求发送，用于保证一条支线只有一个当前评分。
 
-因此，**访客在页面上传的照片和评分只保存在该访客自己的浏览器里，不会自动出现在其他人的页面上**。预设的 16 条杭电日常和初始评分用于展示社区氛围。
+本地联调时，启动 FastAPI 后可以和其他浏览器/设备共享同一份 SQLite 数据。正式上线换成 PostgreSQL / MySQL 后，才会成为真正校园范围的共享档案。
 
-如果要实现真正的「杭电学生共同投稿、所有人可见」，需要接入共享后端，例如：
+## FastAPI 后端（已联调）
 
-- Supabase / Firebase：数据库 + 对象存储，适合快速搭建；
-- Cloudflare R2 + Workers / D1：图片与元数据分离存储；
-- 自建 Node / Python 服务 + 对象存储。
-
-接入后把 `localStorage` 读写替换成 API 请求即可，前端其余交互可以保留。
-
-## FastAPI 后端（已准备）
-
-完整后端代码在 [`backend/`](backend/README.md)，目前用 SQLite 跑通接口，数据库地址可随时替换为 PostgreSQL：
+完整后端代码在 [`backend/`](backend/README.md)，目前用 SQLite 跑通接口，数据库地址可随时替换为 PostgreSQL / MySQL：
 
 ```text
 前端 GitHub Pages / OSS
@@ -96,7 +114,14 @@ OSS（照片）
 
 数据库访问已抽象成 `QuestRepository`，当前实现是 SQLAlchemy；后续拿到 PostgreSQL 后只需修改 `backend/.env` 的 `DATABASE_URL`，然后执行 `python -m app.init_db`。
 
-> 目前前端页面仍使用原来的 localStorage / IndexedDB 数据层，尚未切换到 FastAPI；后端接口已独立可测试。用户提供数据库后再做前后端联调。
+前端已接入 API：本地打开 `http://127.0.0.1:4173/` 会自动探测 `http://127.0.0.1:8000/api`；如果后端不可用，会自动回退到 localStorage 模式。第一次启动后端时需要执行：
+
+```powershell
+cd backend
+python -m app.seed
+```
+
+`seed` 会把 16 条预设杭电日常写入 SQLite，页面就能从 API 读取统一的初始内容。
 
 ## 文件结构
 
@@ -108,6 +133,7 @@ OSS（照片）
 ├─ start-preview.bat        一键启动本地预览
 ├─ preview-server.mjs       Node 备用静态服务器
 ├─ backend/                 FastAPI 后端（接口 + 数据库抽象）
+│  └─ seed/presets.json     16 条预设数据
 ├─ README.md
 └─ assets/
    ├─ favicon.svg

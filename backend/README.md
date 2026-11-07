@@ -1,8 +1,10 @@
 # 杭电支线 · FastAPI 后端
 
-这个目录是「杭电支线」的后端骨架。前端只通过 HTTP API 访问数据，**不会直接连接数据库**。
+这个目录是「杭电支线」的后端。前端只通过 HTTP API 访问数据，**不会直接连接数据库**。
 
-当前默认用 SQLite 跑通接口；你后续拿到 PostgreSQL 后，只需要修改 `DATABASE_URL`，API、前端调用方式和图片上传流程都不需要改。
+当前默认用 SQLite 跑通接口；你后续拿到 PostgreSQL / MySQL 后，只需要修改 `DATABASE_URL`，API、前端调用方式和图片上传流程都不需要改。
+
+前端已经接入这组 API：本地打开 `http://127.0.0.1:4173/` 时会自动探测 `http://127.0.0.1:8000/api`。如果 FastAPI 或数据库不可用，会自动回退到原来的 localStorage 模式。线上 GitHub Pages 也保留了这个 fallback。
 
 ## 目录结构
 
@@ -17,9 +19,11 @@ backend/
 │  ├─ routes.py                 # REST API
 │  ├─ main.py                   # FastAPI 入口
 │  ├─ init_db.py                # 手动建表
+│  ├─ seed.py                   # 导入 16 条预设杭电日常
 │  └─ repositories/
 │     ├─ base.py                # 数据库接口 QuestRepository
 │     └─ sqlalchemy_repo.py     # SQLAlchemy 实现
+├─ seed/presets.json            # 预设内容（从 app.js 生成）
 ├─ sql/schema.sql               # PostgreSQL 建表参考
 ├─ tests/test_api.py            # 接口测试
 ├─ uploads/                     # 本地图片目录（不提交）
@@ -40,6 +44,14 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 或者双击 `start-backend.bat`。
+
+如果是第一次启动、数据库还是空的，需要导入 16 条预设杭电日常：
+
+```powershell
+python -m app.seed
+```
+
+`seed.py` 会从 `seed/presets.json` 读取内容，图片 URL 使用 `FRONTEND_BASE_URL` 拼接。已经存在的 ID 会跳过，重复执行不会插入重复数据。
 
 启动后：
 
@@ -116,8 +128,11 @@ DATABASE_URL=postgresql+asyncpg://用户名:密码@数据库地址:5432/数据�
 # DATABASE_URL=mysql+aiomysql://用户名:密码@数据库地址:3306/数据库名?charset=utf8mb4
 
 PUBLIC_BASE_URL=https://你的API域名
+FRONTEND_BASE_URL=https://lcz22.github.io
 CORS_ORIGINS=https://lcz22.github.io,http://127.0.0.1:4173
 ```
+
+`FRONTEND_BASE_URL` 用于把种子数据的图片指向前端资源；如果是本地联调，保持 `http://127.0.0.1:4173`。`PUBLIC_BASE_URL` 用于用户新上传图片的完整 URL。
 
 3. 建表：
 
@@ -182,9 +197,17 @@ pytest -q
 
 测试使用临时 SQLite 数据库和临时上传目录，不会动到本地开发数据。
 
-## 前端接入时需要做的映射
+## 前端接入（已完成）
 
-当前前端字段与 API 基本对齐：
+`app.js` 现在会自动探测 FastAPI：
+
+- 本地访问 `http://127.0.0.1:4173/` 时，API 默认是 `http://127.0.0.1:8000/api`；
+- 可以在 `index.html` 里修改 `window.HDU_API_BASE_URL`，或在 localStorage 设置 `hdu-sidequests.api-base.v1`；
+- 后端不可用、数据库为空或请求失败时，会自动回退到原来的 localStorage 模式；
+- API 模式下，浏览器会生成并持久化一个 `visitor_id`；
+- 上传成功返回的 `manage_token` 只保存在当前浏览器的 localStorage，换浏览器后将无法删除该投稿。
+
+前端字段与 API 的映射：
 
 | 前端字段 | API 字段 |
 | --- | --- |
@@ -192,7 +215,13 @@ pytest -q
 | `q.date` | `date`（显示格式 `2026.11.02`） |
 | `q.iso` | `iso` |
 | `q.time` | `time` |
-| `q.baseScore` / `baseVotes` | 不再需要，使用 `score` / `votes` |
+| `q.stamp` | `stamp` |
+| `q.baseScore` / `baseVotes` | 不再使用，读取 `score` / `votes` |
 | `q.isUser` | `is_user` |
+| `q.my_rating` | 当前访客自己的评分 |
 
-评分提交时，前端还需生成并持久化一个 `visitor_id`，每次请求放在 `X-Visitor-Id` 请求头里。
+评分提交时，前端会自动附带：
+
+```http
+X-Visitor-Id: <localStorage 中生成的 visitor UUID>
+```

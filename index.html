@@ -534,6 +534,11 @@
     </article>
   </template>
 
+  <script>
+    // 本地开发会自动连接 http://127.0.0.1:8000/api。
+    // 后端部署到 ECS 后，把这里改成 https://api.你的域名/api。
+    window.HDU_API_BASE_URL = window.HDU_API_BASE_URL || '';
+  </script>
   <script src="app.js"></script>
 </body>
 </html>

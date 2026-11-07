@@ -19,6 +19,7 @@ class NewQuest:
     shot_time: time
     place: str
     feeling: str
+    stamp: str
     category: str
     image_url: str
     image_filename: str
@@ -36,6 +37,7 @@ class QuestRecord:
     shot_time: time
     place: str
     feeling: str
+    stamp: str
     category: str
     image_url: str
     image_filename: str

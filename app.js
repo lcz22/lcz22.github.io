@@ -248,7 +248,10 @@ const CATEGORIES = ['校园', '下沙', '杭州', '相遇', '深夜'];
 const LS_KEYS = {
   ratings: 'hdu-sidequests.ratings.v1',
   hidden: 'hdu-sidequests.hidden.v1',
-  fallbackUploads: 'hdu-sidequests.uploads.fallback.v1'
+  fallbackUploads: 'hdu-sidequests.uploads.fallback.v1',
+  manageTokens: 'hdu-sidequests.manage-tokens.v1',
+  visitor: 'hdu-sidequests.visitor.v1',
+  apiBase: 'hdu-sidequests.api-base.v1'
 };
 const DB_NAME = 'hdu-sidequests-archive';
 const DB_STORE = 'photos';
@@ -263,6 +266,11 @@ const state = {
   uploads: [],
   hidden: new Set(readJSON(LS_KEYS.hidden, [])),
   ratings: readJSON(LS_KEYS.ratings, {}),
+  serverQuests: [],
+  serverMode: false,
+  apiBase: resolveApiBase(),
+  visitorId: getVisitorId(),
+  apiPendingRatings: new Set(),
   filter: 'all',
   activeId: null,
   db: null,
@@ -324,7 +332,117 @@ function pad(number) {
   return String(number).padStart(2, '0');
 }
 
+function resolveApiBase() {
+  try {
+    const override = new URLSearchParams(window.location.search).get('api')
+      || window.HDU_API_BASE_URL
+      || localStorage.getItem(LS_KEYS.apiBase);
+    if (override) return override.replace(/\/+$/, '');
+  } catch (error) {
+    /* ignore malformed URL state */
+  }
+  if (['127.0.0.1', 'localhost'].includes(window.location.hostname)) {
+    return 'http://127.0.0.1:8000/api';
+  }
+  return '';
+}
+
+function getVisitorId() {
+  try {
+    let visitorId = localStorage.getItem(LS_KEYS.visitor);
+    if (!visitorId) {
+      visitorId = window.crypto?.randomUUID
+        ? window.crypto.randomUUID()
+        : `visitor_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+      localStorage.setItem(LS_KEYS.visitor, visitorId);
+    }
+    return visitorId;
+  } catch (error) {
+    return `visitor_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+  }
+}
+
+function apiHeaders(extra = {}) {
+  return {
+    'X-Visitor-Id': state.visitorId,
+    ...extra
+  };
+}
+
+async function apiRequest(path, options = {}) {
+  if (!state.apiBase) throw new Error('API 未配置');
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 9000);
+  try {
+    const response = await fetch(`${state.apiBase}${path}`, {
+      ...options,
+      headers: apiHeaders(options.headers || {}),
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      let detail = `请求失败（${response.status}）`;
+      try {
+        const payload = await response.json();
+        if (payload?.detail) detail = payload.detail;
+      } catch (error) {
+        /* ignore non-JSON error bodies */
+      }
+      throw new Error(detail);
+    }
+    return response;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+async function connectApi() {
+  if (!state.apiBase) return false;
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 1400);
+  try {
+    const response = await fetch(`${state.apiBase}/health`, { signal: controller.signal });
+    return response.ok;
+  } catch (error) {
+    return false;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+async function connectApiWithRetry() {
+  if (await connectApi()) return true;
+  await new Promise(resolve => window.setTimeout(resolve, 900));
+  return connectApi();
+}
+
+function mapServerQuest(item) {
+  return {
+    ...item,
+    fromApi: true,
+    isUser: Boolean(item.is_user),
+    baseScore: 0,
+    baseVotes: 0,
+    createdAt: Date.parse(item.created_at) || 0
+  };
+}
+
+async function loadServerQuests() {
+  const response = await apiRequest('/quests?limit=100');
+  const payload = await response.json();
+  if (!Array.isArray(payload.items) || payload.items.length === 0) {
+    console.warn('FastAPI 已连接，但数据库为空。请先运行 python -m app.seed。');
+    state.serverMode = false;
+    state.serverQuests = [];
+    return false;
+  }
+  state.serverQuests = payload.items.map(mapServerQuest);
+  state.serverMode = true;
+  document.body.dataset.dataMode = 'server';
+  return true;
+}
+
 function allQuests() {
+  if (state.serverMode) return state.serverQuests;
   return [...state.uploads, ...PRESETS];
 }
 
@@ -337,6 +455,17 @@ function findQuest(id) {
 }
 
 function getRating(quest) {
+  if (quest.fromApi) {
+    const votes = Number(quest.votes) || 0;
+    const mine = Number(quest.my_rating) || 0;
+    const avg = Number(quest.score) || 0;
+    return {
+      mine,
+      votes,
+      sum: avg * votes,
+      avg
+    };
+  }
   const baseVotes = Number(quest.baseVotes) || 0;
   const baseSum = (Number(quest.baseScore) || 0) * baseVotes;
   const mine = Number(state.ratings[quest.id]) || 0;
@@ -585,6 +714,18 @@ async function removePersistedUpload(id) {
   }
   const next = state.uploads.filter(item => item.id !== id);
   writeJSON(LS_KEYS.fallbackUploads, next);
+}
+
+function saveManageToken(questId, token) {
+  const tokens = readJSON(LS_KEYS.manageTokens, {});
+  tokens[questId] = token;
+  writeJSON(LS_KEYS.manageTokens, tokens);
+}
+
+function dropManageToken(questId) {
+  const tokens = readJSON(LS_KEYS.manageTokens, {});
+  delete tokens[questId];
+  writeJSON(LS_KEYS.manageTokens, tokens);
 }
 
 /* ---------------------------------------------------------
@@ -1210,6 +1351,11 @@ function buildPeekRating(quest, value) {
 }
 
 function commitRating(quest, value, options = {}) {
+  if (quest.fromApi) {
+    commitServerRating(quest, value, options);
+    return;
+  }
+
   const previous = Number(state.ratings[quest.id]) || 0;
   const next = previous === value ? 0 : value;
 
@@ -1248,6 +1394,64 @@ function commitRating(quest, value, options = {}) {
       const focusIndex = next ? Math.max(0, next - 1) : 0;
       $$('.peek-rating__star', dom.peekRating)[focusIndex]?.focus({ preventScroll: true });
     });
+  }
+}
+
+async function commitServerRating(quest, value, options = {}) {
+  if (state.apiPendingRatings.has(quest.id)) return;
+
+  const previous = Number(quest.my_rating) || 0;
+  const next = previous === value ? 0 : value;
+  state.apiPendingRatings.add(quest.id);
+
+  try {
+    const path = `/quests/${encodeURIComponent(quest.id)}/rating`;
+    const response = await apiRequest(path, next
+      ? {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ score: next })
+        }
+      : { method: 'DELETE' });
+
+    const payload = await response.json();
+    quest.score = payload.average;
+    quest.votes = payload.votes;
+    quest.my_rating = payload.my_rating;
+    state.peekValue = payload.my_rating;
+    state.peekIndex = null;
+
+    renderRatingCard(quest);
+    updateGalleryScore(quest.id);
+    updateStats();
+
+    const star = $$('.peek-rating__glyph', dom.peekRating)[Math.max(0, payload.my_rating - 1)];
+    if (star && payload.my_rating && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      star.animate(
+        [
+          { transform: 'scale(1)' },
+          { transform: 'scale(1.28)', offset: 0.42 },
+          { transform: 'scale(1)' }
+        ],
+        { duration: 360, easing: 'cubic-bezier(.22,1,.36,1)' }
+      );
+    }
+
+    if (payload.my_rating) {
+      pulseNote(payload.my_rating);
+    }
+
+    if (options.restoreFocus) {
+      requestAnimationFrame(() => {
+        const focusIndex = payload.my_rating ? Math.max(0, payload.my_rating - 1) : 0;
+        $$('.peek-rating__star', dom.peekRating)[focusIndex]?.focus({ preventScroll: true });
+      });
+    }
+  } catch (error) {
+    console.error('Rating request failed:', error);
+    showToast(error.message || '评分没有提交成功，请稍后再试');
+  } finally {
+    state.apiPendingRatings.delete(quest.id);
   }
 }
 
@@ -1716,6 +1920,11 @@ async function deleteQuest(id) {
 
   if (detailOpen) closeDetail(true);
 
+  if (quest.fromApi) {
+    await deleteServerQuest(quest);
+    return;
+  }
+
   if (quest.isUser) {
     state.uploads = state.uploads.filter(item => item.id !== id);
     try {
@@ -1734,6 +1943,39 @@ async function deleteQuest(id) {
   state.lastDeleted = { type: 'preset', quest };
   renderArchive();
   showToast('这条支线已从档案中隐藏', '撤销', undoDelete, 6500);
+}
+
+async function deleteServerQuest(quest) {
+  if (!quest.isUser) {
+    state.hidden.add(quest.id);
+    saveHidden();
+    state.lastDeleted = { type: 'preset', quest };
+    renderArchive();
+    showToast('这条杭电日常已从本机档案中隐藏', '撤销', undoDelete, 6500);
+    return;
+  }
+
+  const tokens = readJSON(LS_KEYS.manageTokens, {});
+  const token = tokens[quest.id];
+  if (!token) {
+    showToast('没有找到删除凭证，可能是换过浏览器或清理过本地数据');
+    return;
+  }
+
+  try {
+    await apiRequest(`/quests/${encodeURIComponent(quest.id)}`, {
+      method: 'DELETE',
+      headers: { 'X-Edit-Token': token }
+    });
+    dropManageToken(quest.id);
+    state.lastDeleted = null;
+    await loadServerQuests();
+    renderArchive();
+    showToast('这条杭电日常已从共享档案删除');
+  } catch (error) {
+    console.error('Delete request failed:', error);
+    showToast(error.message || '删除失败，请稍后再试');
+  }
 }
 
 async function undoDelete() {
@@ -1770,12 +2012,39 @@ function setupFooterActions() {
     showToast('被隐藏的支线已全部回到档案');
   });
 
-  dom.resetRatings.addEventListener('click', () => {
+  dom.resetRatings.addEventListener('click', async () => {
+    if (state.serverMode) {
+      await resetServerRatings();
+      return;
+    }
     state.ratings = {};
     saveRatings();
     renderArchive();
     showToast('你的评分已清除，星星重新空着');
   });
+}
+
+async function resetServerRatings() {
+  const rated = state.serverQuests.filter(quest => Number(quest.my_rating) > 0);
+  if (!rated.length) {
+    showToast('你还没有在共享档案里留下评分');
+    return;
+  }
+
+  dom.resetRatings.disabled = true;
+  try {
+    await Promise.all(rated.map(quest =>
+      apiRequest(`/quests/${encodeURIComponent(quest.id)}/rating`, { method: 'DELETE' })
+    ));
+    await loadServerQuests();
+    renderArchive();
+    showToast('你在共享档案里的评分已全部清除');
+  } catch (error) {
+    console.error('Reset ratings failed:', error);
+    showToast(error.message || '清除评分失败，请稍后再试');
+  } finally {
+    dom.resetRatings.disabled = false;
+  }
 }
 
 /* ---------------------------------------------------------
@@ -2449,6 +2718,11 @@ async function submitUpload() {
     return;
   }
 
+  if (state.serverMode) {
+    await submitServerUpload({ title, place, feeling, dateISO });
+    return;
+  }
+
   const quest = {
     id: `u_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     title,
@@ -2482,6 +2756,49 @@ async function submitUpload() {
     dom.publishButton.disabled = false;
     $('.publish-button__label', dom.publishButton).textContent = '发射这条杭电支线';
     showToast('保存失败，浏览器存储空间可能不足');
+  }
+}
+
+function dataUrlToBlob(dataUrl) {
+  const [header, base64] = String(dataUrl).split(',');
+  const mime = /data:([^;]+)/.exec(header)?.[1] || 'image/jpeg';
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new Blob([bytes], { type: mime });
+}
+
+async function submitServerUpload({ title, place, feeling, dateISO }) {
+  dom.publishButton.disabled = true;
+  $('.publish-button__label', dom.publishButton).textContent = '正在上传到共享档案…';
+
+  try {
+    const form = new FormData();
+    form.append('title', title);
+    form.append('shot_date', dateISO);
+    form.append('shot_time', dom.fieldTime.value || currentTime());
+    form.append('place', place || '杭电 · 未命名地点');
+    form.append('feeling', feeling || '有些时刻来不及描述，只能先把它留下来。');
+    form.append('category', CATEGORIES.includes(dom.fieldCategory.value) ? dom.fieldCategory.value : '校园');
+    form.append('image', dataUrlToBlob(state.pendingImage), 'hdu-daily.jpg');
+
+    const response = await apiRequest('/quests', { method: 'POST', body: form });
+    const payload = await response.json();
+    saveManageToken(payload.quest.id, payload.manage_token);
+
+    state.filter = 'all';
+    $$('.filter', dom.filters).forEach(button => button.classList.toggle('is-active', button.dataset.filter === 'all'));
+    closeUpload(true);
+    await loadServerQuests();
+    renderArchive();
+    showToast('这条杭电日常已加入共享档案', '打开', () => openDetail(payload.quest.id), 5200);
+  } catch (error) {
+    console.error('Upload request failed:', error);
+    dom.publishButton.disabled = false;
+    $('.publish-button__label', dom.publishButton).textContent = '发射这条杭电支线';
+    showToast(error.message || '上传失败，请检查 FastAPI 是否在运行');
   }
 }
 
@@ -2847,7 +3164,22 @@ async function init() {
   setupGridMotion();
 
   const uploadsReady = loadUploads();
-  uploadsReady.then(() => {
+  const apiReady = state.apiBase
+    ? connectApiWithRetry()
+        .then(async available => {
+          if (!available) return false;
+          const loaded = await loadServerQuests();
+          if (loaded) console.info('杭电支线：已连接 FastAPI 共享档案');
+          return loaded;
+        })
+        .catch(error => {
+          console.warn('FastAPI unavailable, using local archive:', error);
+          return false;
+        })
+    : Promise.resolve(false);
+
+  Promise.allSettled([uploadsReady, apiReady]).then(() => {
+    if (!state.serverMode) document.body.dataset.dataMode = 'local';
     renderArchive();
     window.setTimeout(() => {
       const params = new URLSearchParams(window.location.search);
@@ -2857,9 +3189,7 @@ async function init() {
       } else if (questId) {
         setQuestParam(null);
       }
-    }, 450);
-  }).catch(error => {
-    console.warn('Could not restore uploads:', error);
+    }, 350);
   });
 }
 

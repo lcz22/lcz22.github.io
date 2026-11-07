@@ -41,6 +41,7 @@ class Quest(Base):
     shot_time: Mapped[time] = mapped_column(Time, nullable=False)
     place: Mapped[str] = mapped_column(String(120), nullable=False)
     feeling: Mapped[str] = mapped_column(Text, nullable=False)
+    stamp: Mapped[str] = mapped_column(String(80), nullable=False, default="PERSONAL ARCHIVE")
     category: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     image_url: Mapped[str] = mapped_column(String(500), nullable=False)
     image_filename: Mapped[str] = mapped_column(String(255), nullable=False)

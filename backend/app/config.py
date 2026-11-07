@@ -29,6 +29,7 @@ class Settings:
     )
     upload_dir: Path = Path(os.getenv("UPLOAD_DIR", str(BASE_DIR / "uploads")))
     public_base_url: str = os.getenv("PUBLIC_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+    frontend_base_url: str = os.getenv("FRONTEND_BASE_URL", "http://127.0.0.1:4173").rstrip("/")
     cors_origins: tuple[str, ...] = _split_origins(
         os.getenv(
             "CORS_ORIGINS",

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS quests (
     shot_time         TIME NOT NULL,
     place             VARCHAR(120) NOT NULL,
     feeling           TEXT NOT NULL,
+    stamp             VARCHAR(80) NOT NULL DEFAULT 'PERSONAL ARCHIVE',
     category          VARCHAR(20) NOT NULL,
     image_url         VARCHAR(500) NOT NULL,
     image_filename    VARCHAR(255) NOT NULL,
