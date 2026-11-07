@@ -8,7 +8,7 @@
   <title>杭电支线 · HDU SIDE QUESTS</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="assets/fonts/noto-serif-sc-subset.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261107-archive-avatar">
+  <link rel="stylesheet" href="styles.css?v=20261107-jpg-fix">
 </head>
 <body>
   <div class="grain" aria-hidden="true"></div>
@@ -441,7 +441,7 @@
         <div class="upload-layout">
           <div class="upload-media">
             <label class="dropzone" id="dropzone" for="fileInput" tabindex="0">
-              <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/bmp,image/heic,image/heif,.heic,.heif" hidden>
+              <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/bmp,image/heic,image/heif,.jpg,.jpeg,.jfif,.heic,.heif" hidden>
 
               <div class="dropzone__empty" id="dropEmpty">
                 <span class="dropzone__plus" aria-hidden="true">+</span>
@@ -644,6 +644,6 @@
     // 后端部署到 ECS 后，把这里改成 https://api.你的域名/api。
     window.HDU_API_BASE_URL = window.HDU_API_BASE_URL || '';
   </script>
-  <script src="app.js?v=20261107-archive-avatar"></script>
+  <script src="app.js?v=20261107-jpg-fix"></script>
 </body>
 </html>

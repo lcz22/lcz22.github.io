@@ -83,7 +83,7 @@ class LocalImageStorage(ImageStorage):
         content_type = (upload_file.content_type or "").lower()
         original_name = (upload_file.filename or "").lower()
         suffix = Path(original_name).suffix
-        image_suffixes = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif", ".bmp", ".heic", ".heif"}
+        image_suffixes = {".jpg", ".jpeg", ".jfif", ".jpe", ".pjpeg", ".pjp", ".png", ".webp", ".gif", ".avif", ".bmp", ".heic", ".heif"}
         if content_type and not content_type.startswith("image/") and suffix not in image_suffixes:
             raise InvalidImageError("只支持图片文件")
 

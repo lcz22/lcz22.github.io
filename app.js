@@ -3249,7 +3249,7 @@ function setupUpload() {
 function isImageFile(file) {
   if (!file) return false;
   if (file.type && file.type.startsWith('image/')) return true;
-  return /\.(jpe?g|png|webp|gif|avif|bmp|heic|heif)$/i.test(file.name);
+  return /\.(jpe?g|jfif|jpe|pjpeg|pjp|png|webp|gif|avif|bmp|heic|heif)$/i.test(file.name);
 }
 
 function isHeicFile(file) {
@@ -3308,7 +3308,18 @@ async function handleFile(file) {
     dom.dropPreview.hidden = false;
   } catch (error) {
     console.error(error);
-    showToast('照片处理失败，请换一张 JPG、PNG 或 HEIC 试试');
+    if (state.serverMode) {
+      state.pendingFile = file;
+      state.pendingImage = '';
+      dom.previewImg.src = serverImagePlaceholder(file);
+      dom.fileName.textContent = file.name;
+      dom.fileMeta.textContent = `${(file.size / 1024 / 1024).toFixed(1)} MB · 服务端压缩`;
+      dom.dropEmpty.hidden = true;
+      dom.dropPreview.hidden = false;
+      showToast('浏览器无法预览这张图片，已切换为服务端压缩');
+    } else {
+      showToast('照片处理失败，请换一张 JPG、PNG 或 HEIC 试试');
+    }
   } finally {
     if (strong && originalStrong) strong.textContent = originalStrong;
     dom.dropEmpty.style.opacity = '';
@@ -3319,6 +3330,13 @@ async function handleFile(file) {
 function heicPlaceholder(name) {
   const label = escapeHTML(name).slice(0, 24);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="675"><rect width="900" height="675" fill="#17130f"/><text x="450" y="320" text-anchor="middle" fill="#4d7cff" font-family="monospace" font-size="26" letter-spacing="6">HEIC</text><text x="450" y="365" text-anchor="middle" fill="#9b9386" font-family="monospace" font-size="16">${label}</text><text x="450" y="405" text-anchor="middle" fill="#6f685e" font-family="monospace" font-size="13">服务端将转换为 JPEG</text></svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function serverImagePlaceholder(file) {
+  const name = escapeHTML(file.name).slice(0, 28);
+  const type = (file.type || file.name.split('.').pop() || 'IMAGE').toUpperCase().slice(0, 12);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="675"><rect width="900" height="675" fill="#17130f"/><text x="450" y="318" text-anchor="middle" fill="#4d7cff" font-family="monospace" font-size="28" letter-spacing="4">${type}</text><text x="450" y="362" text-anchor="middle" fill="#9b9386" font-family="monospace" font-size="16">${name}</text><text x="450" y="403" text-anchor="middle" fill="#6f685e" font-family="monospace" font-size="13">浏览器无法预览，将由服务端压缩</text></svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
@@ -3344,36 +3362,56 @@ function setMotionFile(file) {
 
 function compressImage(file) {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    let settled = false;
+    const timeout = window.setTimeout(() => fail(new Error('Image decode timed out')), 15000);
 
-    reader.onload = () => {
-      const image = new Image();
-      image.onload = () => {
-        try {
-          const maxSide = 1800;
-          const ratio = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
-          const width = Math.max(1, Math.round(image.naturalWidth * ratio));
-          const height = Math.max(1, Math.round(image.naturalHeight * ratio));
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const context = canvas.getContext('2d', { alpha: false });
-          context.fillStyle = '#0d0b09';
-          context.fillRect(0, 0, width, height);
-          context.drawImage(image, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.84);
-          if (!dataUrl || dataUrl.length < 32) throw new Error('Empty canvas export');
-          resolve(dataUrl);
-        } catch (error) {
-          reject(error);
-        }
-      };
-      image.onerror = () => reject(new Error('Image could not be decoded'));
-      image.src = String(reader.result);
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      URL.revokeObjectURL(objectUrl);
+    };
+    const fail = error => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(error);
     };
 
-    reader.onerror = () => reject(reader.error || new Error('File could not be read'));
-    reader.readAsDataURL(file);
+    image.onload = () => {
+      try {
+        if (!image.naturalWidth || !image.naturalHeight) {
+          fail(new Error('Image has no dimensions'));
+          return;
+        }
+        const maxSide = 1800;
+        const ratio = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+        const width = Math.max(1, Math.round(image.naturalWidth * ratio));
+        const height = Math.max(1, Math.round(image.naturalHeight * ratio));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d', { alpha: false });
+        if (!context) {
+          fail(new Error('Canvas 2D is unavailable'));
+          return;
+        }
+        context.fillStyle = '#0d0b09';
+        context.fillRect(0, 0, width, height);
+        context.drawImage(image, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.84);
+        if (!dataUrl || !dataUrl.startsWith('data:image/jpeg') || dataUrl.length < 128) {
+          fail(new Error('Empty canvas export'));
+          return;
+        }
+        settled = true;
+        cleanup();
+        resolve(dataUrl);      } catch (error) {
+        fail(error);
+      }
+    };
+    image.onerror = () => fail(new Error('Image could not be decoded'));
+    image.src = objectUrl;
   });
 }
 
