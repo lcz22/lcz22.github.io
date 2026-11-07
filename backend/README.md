@@ -192,7 +192,13 @@ python -m app.create_admin admin admin@example.com "a-strong-password"
 后端支持两层：
 
 1. **HEIC / HEIF 静态图**：使用 `pillow-heif` 解码，再统一转成 JPEG。iPhone 直接上传 `.heic` 也可以。
-2. **实况动态**：`POST /api/quests` 额外接收可选的 `motion` 文件（MP4 / MOV，最多 60MB），存入 `uploads/`，详情页可以播放。
+2. **实况动态**：`POST /api/quests` 额外接收可选的 `motion` 文件（MP4 / MOV，最多 60MB）。后端使用 ffmpeg 统一转码为浏览器兼容的 **H.264 MP4**，默认限制 15 秒、最长边 1280px。
+
+ffmpeg 来源：
+
+- 优先使用 `FFMPEG_BINARY` 指定的系统 ffmpeg；
+- 否则使用 `PATH` 里的 `ffmpeg`；
+- 都没有时使用 `imageio-ffmpeg` 包自带的二进制。
 
 前端上传窗口里有「实况 / 动态」选择器。浏览器的文件选择器通常不能把 iPhone 实况照片的静态图和 MOV 自动配对，所以需要用户单独选择那段视频；不选就只保存静态画面。
 
@@ -227,6 +233,13 @@ PUBLIC_BASE_URL=https://你的API域名
 FRONTEND_BASE_URL=https://lcz22.github.io
 CORS_ORIGINS=https://lcz22.github.io,http://127.0.0.1:4173
 JWT_SECRET=换成至少32位的随机字符串
+
+# 实况视频转码参数
+MOTION_MAX_SECONDS=15
+MOTION_MAX_SIDE=1280
+MOTION_CRF=24
+# 可选：使用系统 ffmpeg
+# FFMPEG_BINARY=/usr/bin/ffmpeg
 ```
 
 `FRONTEND_BASE_URL` 用于种子数据的图片 URL；`PUBLIC_BASE_URL` 用于新上传图片的完整 URL。
@@ -252,7 +265,7 @@ python -m app.create_admin admin admin@example.com "a-strong-password"
 - 管理员审核状态已支持，默认 `AUTO_APPROVE=false`，新投稿先进入待审；
 - 图片存储仍是本地 `uploads/`，正式运营建议换 OSS；
 - 游客评分已关闭，所有评分都绑定登录用户；
-- 实况视频只校验 MP4 / MOV 容器和大小，没有做转码；老设备或特殊编码可能无法在浏览器中播放。
+- 实况视频会通过 ffmpeg 转成 H.264 MP4，最长 15 秒、最长边 1280px；如果需要更长或更清晰，调整 `MOTION_MAX_SECONDS`、`MOTION_MAX_SIDE`、`MOTION_CRF`。
 
 ## 测试
 
@@ -269,4 +282,4 @@ pytest -q
 - 作者评分、作者删除、其他用户禁止删除；
 - 作者查看待审 / 未通过内容，游客看不到；
 - 管理员查看用户、审核 / 拒绝投稿、删除他人投稿、防止最后一个管理员自降级；
-- HEIC 静态图转换、MP4 / MOV 实况视频上传与删除清理。
+- HEIC 静态图转换、MP4 / MOV 实况视频上传、ffmpeg 转码与删除清理。

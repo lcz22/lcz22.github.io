@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import subprocess
 import tempfile
+from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 
@@ -19,6 +21,7 @@ os.environ["JWT_SECRET"] = "test-secret-that-is-long-enough-for-hs256"
 from fastapi.testclient import TestClient  # noqa: E402
 from PIL import Image  # noqa: E402
 from pillow_heif import from_pillow  # noqa: E402
+import imageio_ffmpeg  # noqa: E402
 
 from app.main import app  # noqa: E402
 
@@ -35,9 +38,29 @@ def heic_bytes() -> bytes:
     return buffer.getvalue()
 
 
+@lru_cache(maxsize=1)
 def motion_bytes() -> bytes:
-    # Minimal MP4-like header accepted by the storage validator; no decoder is invoked.
-    return b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom" + b"\x00" * 128
+    target = TEST_ROOT / "motion-source.mp4"
+    subprocess.run(
+        [
+            imageio_ffmpeg.get_ffmpeg_exe(),
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=blue:s=320x240:d=1",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            str(target),
+        ],
+        check=True,
+    )
+    return target.read_bytes()
 
 
 def auth(token: str) -> dict[str, str]:
@@ -262,7 +285,7 @@ def test_heic_and_motion_upload(client: TestClient) -> None:
 
     motion_response = client.get(quest["motion"].replace("http://testserver", ""))
     assert motion_response.status_code == 200
-    assert motion_response.headers["content-type"] == "video/quicktime"
+    assert motion_response.headers["content-type"] == "video/mp4"
 
     response = client.delete(f"/api/quests/{quest['id']}", headers=auth(user["access_token"]))
     assert response.status_code == 204

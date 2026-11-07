@@ -40,6 +40,10 @@ class Settings:
     )
     max_upload_bytes: int = int(os.getenv("MAX_UPLOAD_BYTES", str(20 * 1024 * 1024)))
     max_motion_bytes: int = int(os.getenv("MAX_MOTION_BYTES", str(60 * 1024 * 1024)))
+    motion_max_seconds: int = int(os.getenv("MOTION_MAX_SECONDS", "15"))
+    motion_max_side: int = int(os.getenv("MOTION_MAX_SIDE", "1280"))
+    motion_crf: int = int(os.getenv("MOTION_CRF", "24"))
+    ffmpeg_binary: str = os.getenv("FFMPEG_BINARY", "")
     max_image_side: int = int(os.getenv("MAX_IMAGE_SIDE", "1800"))
     jpeg_quality: int = int(os.getenv("JPEG_QUALITY", "84"))
     auto_approve: bool = os.getenv("AUTO_APPROVE", "false").lower() in {"1", "true", "yes", "on"}

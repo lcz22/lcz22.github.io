@@ -6,9 +6,12 @@ without changing the API endpoints.
 
 from __future__ import annotations
 
+import asyncio
 import io
+import shutil
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from uuid import uuid4
 
@@ -18,6 +21,21 @@ from pillow_heif import register_heif_opener
 from .config import Settings, settings
 
 register_heif_opener()
+
+
+@lru_cache(maxsize=1)
+def ffmpeg_executable() -> str | None:
+    if settings.ffmpeg_binary:
+        return settings.ffmpeg_binary
+    system_ffmpeg = shutil.which("ffmpeg")
+    if system_ffmpeg:
+        return system_ffmpeg
+    try:
+        import imageio_ffmpeg
+
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return None
 
 
 class InvalidImageError(ValueError):
@@ -121,16 +139,84 @@ class LocalImageStorage(ImageStorage):
         if len(payload) < 12 or payload[4:8] != b"ftyp":
             raise InvalidMotionError("实况视频格式无法识别，请使用 MP4 / MOV")
 
-        is_quicktime = content_type == "video/quicktime" or suffix == ".mov"
-        extension = ".mov" if is_quicktime else ".mp4"
-        mime = "video/quicktime" if is_quicktime else "video/mp4"
-        filename = f"{uuid4().hex}{extension}"
-        (self.directory / filename).write_bytes(payload)
+        ffmpeg = ffmpeg_executable()
+        if not ffmpeg:
+            raise InvalidMotionError("服务器缺少 ffmpeg，暂时无法处理实况视频")
+
+        input_suffix = ".mov" if content_type == "video/quicktime" or suffix == ".mov" else ".mp4"
+        input_path = self.directory / f".motion-{uuid4().hex}{input_suffix}"
+        filename = f"{uuid4().hex}.mp4"
+        output_path = self.directory / filename
+        input_path.write_bytes(payload)
+
+        try:
+            await self._transcode(ffmpeg, input_path, output_path)
+            if not output_path.exists() or output_path.stat().st_size == 0:
+                raise InvalidMotionError("实况视频转码失败")
+        except InvalidMotionError:
+            output_path.unlink(missing_ok=True)
+            raise
+        except Exception as exc:
+            output_path.unlink(missing_ok=True)
+            raise InvalidMotionError("实况视频转码失败，请换一段 MP4 / MOV") from exc
+        finally:
+            input_path.unlink(missing_ok=True)
+
         return StoredMotion(
             filename=filename,
             url=f"{self.config.public_base_url}/uploads/{filename}",
-            mime=mime,
+            mime="video/mp4",
         )
+
+    async def _transcode(self, ffmpeg: str, input_path: Path, output_path: Path) -> None:
+        scale = f"scale=w=min({self.config.motion_max_side}\\,iw):h=-2:flags=lanczos"
+        command = [
+            ffmpeg,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+            str(input_path),
+            "-t",
+            str(self.config.motion_max_seconds),
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a?",
+            "-vf",
+            scale,
+            "-c:v",
+            "libx264",
+            "-preset",
+            "fast",
+            "-crf",
+            str(self.config.motion_crf),
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "96k",
+            "-movflags",
+            "+faststart",
+            str(output_path),
+        ]
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            _, stderr = await asyncio.wait_for(process.communicate(), timeout=180)
+        except asyncio.TimeoutError as exc:
+            process.kill()
+            await process.wait()
+            raise InvalidMotionError("实况视频转码超时") from exc
+        if process.returncode != 0:
+            message = stderr.decode("utf-8", "ignore")[-500:]
+            print(f"ffmpeg failed: {message}")
+            raise InvalidMotionError("实况视频转码失败，请换一段 MP4 / MOV")
 
     def delete(self, filename: str | None) -> None:
         if not filename:

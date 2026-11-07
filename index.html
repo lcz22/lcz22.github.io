@@ -8,7 +8,7 @@
   <title>杭电支线 · HDU SIDE QUESTS</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="assets/fonts/noto-serif-sc-subset.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261107-review-motion3">
+  <link rel="stylesheet" href="styles.css?v=20261107-ffmpeg2">
 </head>
 <body>
   <div class="grain" aria-hidden="true"></div>
@@ -461,7 +461,7 @@
             <div class="motion-field">
               <div class="motion-field__copy">
                 <span class="field__label">实况 / 动态 <em>可选</em></span>
-                <p>如果这是 iPhone 实况照片，可以再选一段 MOV / MP4；不选则只保留静态画面。</p>
+                <p>如果这是 iPhone 实况照片，可以再选一段 MOV / MP4；服务端会转码为浏览器兼容的 H.264 MP4。</p>
               </div>
               <input id="motionInput" type="file" accept="video/mp4,video/quicktime,.mp4,.mov" hidden>
               <button class="motion-field__pick" id="motionPick" type="button">选择视频</button>
@@ -473,7 +473,7 @@
 
             <p class="upload-tip">
               <span aria-hidden="true">✳</span>
-              照片会压缩后上传；HEIC 由服务端转换，实况视频请控制在 60MB 内。
+              照片会压缩后上传；HEIC 由服务端转换，实况视频会转为 H.264 MP4，最长 15 秒。
             </p>
           </div>
 
@@ -640,6 +640,6 @@
     // 后端部署到 ECS 后，把这里改成 https://api.你的域名/api。
     window.HDU_API_BASE_URL = window.HDU_API_BASE_URL || '';
   </script>
-  <script src="app.js?v=20261107-review-motion3"></script>
+  <script src="app.js?v=20261107-ffmpeg2"></script>
 </body>
 </html>

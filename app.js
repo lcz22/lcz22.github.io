@@ -400,12 +400,13 @@ function apiHeaders(extra = {}) {
 
 async function apiRequest(path, options = {}) {
   if (!state.apiBase) throw new Error('API 未配置');
+  const { timeoutMs = 9000, ...fetchOptions } = options;
   const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), 9000);
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(`${state.apiBase}${path}`, {
-      ...options,
-      headers: apiHeaders(options.headers || {}),
+      ...fetchOptions,
+      headers: apiHeaders(fetchOptions.headers || {}),
       signal: controller.signal
     });
     if (response.status === 401 && readAuthToken() && !path.startsWith('/auth/')) {
@@ -3411,7 +3412,9 @@ function dataUrlToBlob(dataUrl) {
 
 async function submitServerUpload({ title, place, feeling, dateISO }) {
   dom.publishButton.disabled = true;
-  $('.publish-button__label', dom.publishButton).textContent = '正在提交审核…';
+  $('.publish-button__label', dom.publishButton).textContent = state.pendingMotion
+    ? '正在转码并提交审核…'
+    : '正在提交审核…';
 
   try {
     const form = new FormData();
@@ -3427,7 +3430,11 @@ async function submitServerUpload({ title, place, feeling, dateISO }) {
       form.append('motion', state.pendingMotion, state.pendingMotion.name || 'hdu-motion.mp4');
     }
 
-    const response = await apiRequest('/quests', { method: 'POST', body: form });
+    const response = await apiRequest('/quests', {
+      method: 'POST',
+      body: form,
+      timeoutMs: 200000
+    });
     const quest = await response.json();
 
     state.filter = 'all';
