@@ -8,7 +8,7 @@
   <title>杭电支线 · HDU SIDE QUESTS</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="assets/fonts/noto-serif-sc-subset.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261108-album-shredder">
+  <link rel="stylesheet" href="styles.css?v=20261108-final">
 </head>
 <body>
   <div class="grain" aria-hidden="true"></div>
@@ -343,8 +343,15 @@
                     <span>RATING / 背面</span>
                     <strong>翻回照片</strong>
                   </div>
-                  <div class="flip-back__scroll" id="flipBackContent"></div>
-                  <p class="flip-back__hint">拖动星星评分，再点一次可以收回。翻转按钮回到照片。</p>
+                  <div class="flip-back__scroll" id="flipBackContent">
+                    <div class="flip-back__story">
+                      <p class="flip-back__meta" id="flipBackMeta"></p>
+                      <h2 class="flip-back__title" id="flipBackTitle"></h2>
+                      <blockquote class="flip-back__feeling" id="flipBackFeeling"></blockquote>
+                      <p class="flip-back__note" id="flipBackNote"></p>
+                    </div>
+                  </div>
+                  <p class="flip-back__hint">点击图片或卡片翻转；拖动星星评分，再点一次可以收回。</p>
                 </div>
               </div>
             </div>
@@ -635,6 +642,31 @@
     </section>
   </div>
 
+  <div class="admin-preview" id="adminPreview" hidden>
+    <div class="admin-preview__scrim" data-close-admin-preview></div>
+    <section class="admin-preview__panel" role="dialog" aria-modal="true" aria-labelledby="adminPreviewTitle">
+      <header class="admin-preview__head">
+        <div>
+          <p class="auth-kicker">REVIEW / 内容预览</p>
+          <h2 id="adminPreviewTitle">投稿预览</h2>
+        </div>
+        <button class="auth-close" id="adminPreviewClose" type="button" aria-label="关闭预览">×</button>
+      </header>
+      <div class="admin-preview__body">
+        <div class="admin-preview__media">
+          <img id="adminPreviewImage" src="" alt="">
+          <div class="admin-preview__thumbs" id="adminPreviewThumbs"></div>
+        </div>
+        <div class="admin-preview__info">
+          <p class="admin-preview__meta" id="adminPreviewMeta"></p>
+          <p class="admin-preview__feeling" id="adminPreviewFeeling"></p>
+          <p class="admin-preview__reason" id="adminPreviewReason"></p>
+          <a class="admin-preview__motion" id="adminPreviewMotion" href="#" target="_blank" rel="noopener" hidden>打开实况视频 ↗</a>
+        </div>
+      </div>
+    </section>
+  </div>
+
   <div class="toast" id="toast" role="status" aria-live="polite">
     <span class="toast__dot" aria-hidden="true"></span>
     <span id="toastText">已保存</span>
@@ -677,6 +709,6 @@
     // 后端部署到 ECS 后，把这里改成 https://api.你的域名/api。
     window.HDU_API_BASE_URL = window.HDU_API_BASE_URL || '';
   </script>
-  <script src="app.js?v=20261108-album-shredder"></script>
+  <script src="app.js?v=20261108-final"></script>
 </body>
 </html>

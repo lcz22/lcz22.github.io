@@ -279,6 +279,8 @@ const state = {
   adminTotalUsers: 0,
   adminTotalQuests: 0,
   adminQuestFilter: 'pending',
+  adminPreviewQuest: null,
+  adminPreviewIndex: 0,
   albumIndex: 0,
   albumQuestId: null,
   detailFlipped: false,
@@ -703,6 +705,7 @@ async function openAdmin() {
 
 function closeAdmin(skipFocus = false) {
   if (!adminOpen) return;
+  closeAdminPreview();
   adminOpen = false;
   dom.adminLayer.classList.remove('is-open');
   dom.adminLayer.setAttribute('aria-hidden', 'true');
@@ -781,16 +784,17 @@ function renderAdmin() {
       ? `<div class="admin-reason">拒绝原因：${escapeHTML(quest.review_reason)}</div>`
       : '';
     return `<div class="admin-row">
-      <a class="admin-thumb" href="${escapeHTML(quest.image)}" target="_blank" rel="noopener" aria-label="查看投稿原图">
+      <a class="admin-thumb" href="${escapeHTML(quest.image)}" data-admin-preview="${escapeHTML(quest.id)}" aria-label="查看投稿原图">
         <img src="${escapeHTML(quest.image)}" alt="" loading="lazy">
       </a>
       <div class="admin-row__main">
         <div class="admin-row__title">${escapeHTML(quest.title)} ${statusBadge}</div>
-        <div class="admin-row__sub">${escapeHTML(owner)} · ${escapeHTML(quest.category)} · ${escapeHTML(quest.date)} · ${quest.votes} 人评分${quest.has_motion ? ` · <a class="admin-motion-link" href="${escapeHTML(quest.motion)}" target="_blank" rel="noopener">实况视频</a>` : ''}</div>
+        <div class="admin-row__sub">${escapeHTML(owner)} · ${escapeHTML(quest.category)} · ${escapeHTML(quest.date)} · ${quest.votes} 人评分${quest.image_count > 1 ? ` · 图集 ${quest.image_count}` : ''}${quest.has_motion ? ` · <a class="admin-motion-link" href="${escapeHTML(quest.motion)}" target="_blank" rel="noopener">实况视频</a>` : ''}</div>
         <div class="admin-row__excerpt">${escapeHTML((quest.feeling || '').slice(0, 90))}</div>
         ${reason}
       </div>
       <div class="admin-actions">
+        <button class="admin-action" type="button" data-admin-preview="${escapeHTML(quest.id)}">查看</button>
         <button class="admin-action" type="button" data-admin-action="status" data-quest-id="${escapeHTML(quest.id)}" data-status="${quest.status === 'approved' ? 'pending' : 'approved'}">${quest.status === 'approved' ? '转为待审' : '通过公开'}</button>
         ${quest.status === 'rejected' ? '' : `<button class="admin-action admin-action--danger" type="button" data-admin-action="reject" data-quest-id="${escapeHTML(quest.id)}">拒绝</button>`}
         ${quest.is_user ? `<button class="admin-action admin-action--danger" type="button" data-admin-action="delete" data-quest-id="${escapeHTML(quest.id)}">删除</button>` : ''}
@@ -872,6 +876,42 @@ async function handleAdminAction(event) {
   }
 }
 
+function openAdminPreview(questId) {
+  const quest = state.adminQuests.find(item => item.id === questId);
+  if (!quest) return;
+  state.adminPreviewQuest = quest;
+  state.adminPreviewIndex = 0;
+  dom.adminPreviewTitle.textContent = quest.title;
+  dom.adminPreviewMeta.textContent = `${quest.owner_username ? `@${quest.owner_username}` : '预设内容'} · ${quest.category} · ${quest.date} · ${quest.status === 'pending' ? '待审核' : quest.status === 'rejected' ? '未通过' : '已公开'} · ${quest.votes} 人评分`;
+  dom.adminPreviewFeeling.textContent = quest.feeling || '没有填写感受。';
+  dom.adminPreviewReason.textContent = quest.review_reason ? `拒绝原因：${quest.review_reason}` : '';
+  dom.adminPreviewReason.hidden = !quest.review_reason;
+  dom.adminPreviewMotion.hidden = !quest.motion;
+  if (quest.motion) dom.adminPreviewMotion.href = quest.motion;
+  renderAdminPreviewImage(0);
+  dom.adminPreview.hidden = false;
+  dom.adminPreviewClose.focus({ preventScroll: true });
+}
+
+function renderAdminPreviewImage(index) {
+  const quest = state.adminPreviewQuest;
+  if (!quest) return;
+  const images = Array.isArray(quest.images) && quest.images.length ? quest.images : [quest.image];
+  state.adminPreviewIndex = clamp(index, 0, images.length - 1);
+  dom.adminPreviewImage.src = images[state.adminPreviewIndex];
+  dom.adminPreviewImage.alt = quest.title;
+  dom.adminPreviewThumbs.innerHTML = images.map((url, imageIndex) => `
+    <button type="button" class="admin-preview__thumb ${imageIndex === state.adminPreviewIndex ? 'is-active' : ''}" data-preview-index="${imageIndex}" aria-label="查看第 ${imageIndex + 1} 张图">
+      <img src="${escapeHTML(url)}" alt="" loading="lazy">
+    </button>`).join('');
+  dom.adminPreviewThumbs.hidden = images.length < 2;
+}
+
+function closeAdminPreview() {
+  dom.adminPreview.hidden = true;
+  state.adminPreviewQuest = null;
+}
+
 function setupAdmin() {
   if (!dom.adminLayer) return;
   dom.adminClose.addEventListener('click', () => closeAdmin());
@@ -882,6 +922,12 @@ function setupAdmin() {
     renderAdmin();
   }));
   dom.adminBody.addEventListener('click', event => {
+    const preview = event.target.closest('[data-admin-preview]');
+    if (preview) {
+      event.preventDefault();
+      openAdminPreview(preview.dataset.adminPreview);
+      return;
+    }
     const filter = event.target.closest('[data-admin-filter]');
     if (filter) {
       state.adminQuestFilter = filter.dataset.adminFilter;
@@ -889,6 +935,13 @@ function setupAdmin() {
       return;
     }
     handleAdminAction(event);
+  });
+
+  dom.adminPreviewClose.addEventListener('click', closeAdminPreview);
+  $$('[data-close-admin-preview]').forEach(element => element.addEventListener('click', closeAdminPreview));
+  dom.adminPreviewThumbs.addEventListener('click', event => {
+    const button = event.target.closest('[data-preview-index]');
+    if (button) renderAdminPreviewImage(Number(button.dataset.previewIndex) || 0);
   });
 }
 
@@ -931,8 +984,26 @@ function normalQuests() {
   return visibleQuests().filter(quest => !quest.fromApi || quest.status === 'approved');
 }
 
+function expandQuestImages(posts = normalQuests()) {
+  return posts.flatMap(quest => {
+    const images = questImages(quest);
+    return images.map((image, index) => ({
+      ...quest,
+      image,
+      albumIndex: index,
+      image_count: images.length,
+      is_album: images.length > 1,
+      displayKey: `${quest.id}::${index}`
+    }));
+  });
+}
+
+function indexQuests() {
+  return expandQuestImages(normalQuests());
+}
+
 function featuredQuests(limit = 10) {
-  const candidates = normalQuests();
+  const candidates = expandQuestImages(normalQuests());
   return [...candidates]
     .sort((left, right) => {
       const a = getRating(left);
@@ -1025,7 +1096,12 @@ const dom = {
   ratingCard: $('#ratingCard'),
   flipCard: $('#flipCard'),
   flipInner: $('#flipInner'),
+  flipBack: $('#flipBack'),
   flipBackContent: $('#flipBackContent'),
+  flipBackMeta: $('#flipBackMeta'),
+  flipBackTitle: $('#flipBackTitle'),
+  flipBackFeeling: $('#flipBackFeeling'),
+  flipBackNote: $('#flipBackNote'),
   flipToggle: $('#flipToggle'),
   albumStack: $('#albumStack'),
   albumControls: $('#albumControls'),
@@ -1129,7 +1205,16 @@ const dom = {
   adminLayer: $('#adminLayer'),
   adminClose: $('#adminClose'),
   adminBody: $('#adminBody'),
-  adminTabs: $$('.admin-tab')
+  adminTabs: $$('.admin-tab'),
+  adminPreview: $('#adminPreview'),
+  adminPreviewClose: $('#adminPreviewClose'),
+  adminPreviewTitle: $('#adminPreviewTitle'),
+  adminPreviewImage: $('#adminPreviewImage'),
+  adminPreviewThumbs: $('#adminPreviewThumbs'),
+  adminPreviewMeta: $('#adminPreviewMeta'),
+  adminPreviewFeeling: $('#adminPreviewFeeling'),
+  adminPreviewReason: $('#adminPreviewReason'),
+  adminPreviewMotion: $('#adminPreviewMotion')
 };
 
 /* ---------------------------------------------------------
@@ -1373,6 +1458,7 @@ function buildGrid() {
         tile.type = 'button';
         tile.className = 'gm-tile';
         tile.dataset.questId = quest.id;
+        tile.dataset.albumIndex = String(quest.albumIndex || 0);
         tile.tabIndex = -1;
         tile.setAttribute('aria-hidden', 'true');
         tile.innerHTML = tileMarkup(quest);
@@ -1469,7 +1555,7 @@ function setupGridMotion() {
   dom.gmPlane.addEventListener('click', event => {
     const tile = event.target.closest('.gm-tile');
     if (!tile) return;
-    openDetail(tile.dataset.questId, $('img', tile));
+    openDetail(tile.dataset.questId, $('img', tile), Number(tile.dataset.albumIndex) || 0);
   });
 
   if (reduceMotion.addEventListener) {
@@ -1507,7 +1593,7 @@ function cardClassFor(index) {
 }
 
 function updateFilterCounts() {
-  const list = normalQuests();
+  const list = indexQuests();
   const allButton = $('[data-filter="all"]', dom.filters);
   if (allButton) $('span', allButton).textContent = String(list.length);
 
@@ -1522,7 +1608,7 @@ function updateFilterCounts() {
 }
 
 function renderGallery() {
-  const list = normalQuests();
+  const list = indexQuests();
   const fragment = document.createDocumentFragment();
   dom.gallery.innerHTML = '';
 
@@ -1532,7 +1618,9 @@ function renderGallery() {
     const cardClass = cardClassFor(index);
 
     if (cardClass) card.classList.add(cardClass);
-    card.dataset.id = quest.id;
+    card.dataset.id = quest.displayKey || quest.id;
+    card.dataset.questId = quest.id;
+    card.dataset.imageIndex = String(quest.albumIndex || 0);
     card.dataset.category = quest.category;
     card.style.setProperty('--delay', `${Math.min(index * 40, 320)}ms`);
 
@@ -1565,7 +1653,7 @@ function renderGallery() {
     const albumBadge = $('.quest-card__album', card);
     if (quest.image_count > 1) {
       albumBadge.hidden = false;
-      albumBadge.textContent = `图集 ${quest.image_count}`;
+      albumBadge.textContent = `图集 ${quest.albumIndex + 1}/${quest.image_count}`;
     } else {
       albumBadge.hidden = true;
     }
@@ -1577,7 +1665,7 @@ function renderGallery() {
 
     const button = $('.quest-card__button', card);
     button.setAttribute('aria-label', `打开支线：${quest.title}，${quest.place}，${quest.date}`);
-    button.addEventListener('click', () => openDetail(quest.id, image));
+    button.addEventListener('click', () => openDetail(quest.id, image, quest.albumIndex));
     attachCardTilt(button);
 
     fragment.append(card);
@@ -2034,10 +2122,11 @@ function updateGalleryScore(id) {
   const quest = findQuest(id);
   if (!quest) return;
   const rating = getRating(quest);
-  const card = $(`.quest-card[data-id="${CSS.escape(id)}"]`, dom.gallery);
-  if (!card) return;
-  $('.quest-card__score-num', card).textContent = rating.votes ? rating.avg.toFixed(1) : 'NEW';
-  $('.quest-card__score .star', card).textContent = rating.votes ? '★' : '✳';
+  const cards = $$(`.quest-card[data-quest-id="${CSS.escape(id)}"]`, dom.gallery);
+  cards.forEach(card => {
+    $('.quest-card__score-num', card).textContent = rating.votes ? rating.avg.toFixed(1) : 'NEW';
+    $('.quest-card__score .star', card).textContent = rating.votes ? '★' : '✳';
+  });
 }
 
 function renderDetail(quest) {
@@ -2081,6 +2170,12 @@ function renderDetail(quest) {
   dom.detailTitle.textContent = quest.title;
   dom.detailFeeling.textContent = quest.feeling || '有些时刻来不及描述，只能先把它留下来。';
   dom.detailNote.textContent = CATEGORY_NOTES[quest.category] || CATEGORY_NOTES['校园'];
+  if (dom.flipBackMeta) {
+    dom.flipBackMeta.textContent = `${quest.date} · ${quest.time || ''} · ${quest.place}`;
+    dom.flipBackTitle.textContent = quest.title;
+    dom.flipBackFeeling.textContent = quest.feeling || '有些时刻来不及描述，只能先把它留下来。';
+    dom.flipBackNote.textContent = CATEGORY_NOTES[quest.category] || CATEGORY_NOTES['校园'];
+  }
   dom.detailMine.hidden = !quest.isUser || (quest.fromApi && !quest.is_owner);
   const ownerName = quest.fromApi ? quest.owner_username : null;
   dom.ownerAvatar.hidden = !ownerName;
@@ -2220,10 +2315,30 @@ function changeAlbum(direction) {
 
 function setupFlipCard() {
   if (!dom.flipBackContent) return;
+  if (dom.detailReview && dom.detailReview.parentElement !== dom.flipBackContent) {
+    dom.flipBackContent.prepend(dom.detailReview);
+  }
   if (dom.ratingCard && dom.ratingCard.parentElement !== dom.flipBackContent) {
     dom.flipBackContent.append(dom.ratingCard);
   }
   dom.flipToggle.addEventListener('click', () => setDetailFlip(!state.detailFlipped));
+  dom.detailImage.addEventListener('click', event => {
+    event.stopPropagation();
+    setDetailFlip(true);
+  });
+  dom.flipBack.addEventListener('click', event => {
+    if (event.target.closest('button, a, input, textarea, .peek-rating, .rating-card')) return;
+    event.stopPropagation();
+    setDetailFlip(false);
+  });
+  $('.flip-back__head', dom.flipBack)?.addEventListener('click', event => {
+    event.stopPropagation();
+    setDetailFlip(false);
+  });
+  dom.flipCard.addEventListener('click', event => {
+    if (event.target.closest('button, a, input, textarea, .peek-rating, .rating-card')) return;
+    setDetailFlip(!state.detailFlipped);
+  });
   dom.albumPrev.addEventListener('click', () => changeAlbum(-1));
   dom.albumNext.addEventListener('click', () => changeAlbum(1));
   dom.albumStack.addEventListener('click', () => changeAlbum(1));
@@ -2255,7 +2370,7 @@ function setQuestParam(id) {
   }
 }
 
-function openDetail(id, sourceImage = null) {
+function openDetail(id, sourceImage = null, albumIndex = 0) {
   const quest = findQuest(id);
   if (!quest || state.hidden.has(id)) return;
 
@@ -2271,8 +2386,8 @@ function openDetail(id, sourceImage = null) {
 
   detailOpen = true;
   state.activeId = id;
-  state.albumQuestId = null;
-  state.albumIndex = 0;
+  state.albumQuestId = id;
+  state.albumIndex = albumIndex;
   setDetailFlip(false);
   state.lastFocus = document.activeElement;
   if (canFly) {
@@ -4007,6 +4122,10 @@ function setupGlobalKeys() {
         activeGlideClose();
         return;
       }
+      if (!dom.adminPreview.hidden) {
+        closeAdminPreview();
+        return;
+      }
       if (adminOpen) {
         closeAdmin();
         return;
@@ -4031,9 +4150,13 @@ function setupGlobalKeys() {
 
     if (detailOpen && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
       if (event.target.closest('input, textarea, select, .peek-rating')) return;
-      event.preventDefault();
-      navigateDetail(event.key === 'ArrowRight' ? 1 : -1);
-      return;
+      const opened = findQuest(state.activeId);
+      const images = opened ? questImages(opened) : [];
+      if (images.length > 1) {
+        event.preventDefault();
+        changeAlbum(event.key === 'ArrowRight' ? 1 : -1);
+        return;
+      }
     }
 
     if (event.key !== 'Tab') return;
