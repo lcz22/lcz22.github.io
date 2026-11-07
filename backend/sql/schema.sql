@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS quests (
     category          VARCHAR(20) NOT NULL,
     image_url         VARCHAR(500) NOT NULL,
     image_filename    VARCHAR(255) NOT NULL,
+    images_json       TEXT,
     motion_url        VARCHAR(500),
     motion_filename   VARCHAR(255),
     motion_mime       VARCHAR(80),

@@ -7,8 +7,8 @@
   <meta name="description" content="杭电支线成员主页：查看 TA 分享的杭电日常。">
   <title>成员主页 · 杭电支线</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=20261107-profile">
-  <link rel="stylesheet" href="profile.css?v=20261107-profile">
+  <link rel="stylesheet" href="styles.css?v=20261108-album-shredder">
+  <link rel="stylesheet" href="profile.css?v=20261108-album-shredder">
 </head>
 <body class="profile-page">
   <header class="profile-header">
@@ -63,6 +63,18 @@
     </section>
   </main>
 
+  <div class="shredder" id="shredder" hidden>
+    <div class="shredder__drop" id="shredderDrop">
+      <span class="shredder__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V4.8h6V7M6.5 7l.8 12h9.4l.8-12M10 10.5v5M14 10.5v5" stroke="currentColor" stroke-linecap="round"/></svg>
+      </span>
+      <span>
+        <strong>拖到这里粉碎</strong>
+        <small>只删除自己的投稿</small>
+      </span>
+    </div>
+  </div>
+
   <div class="profile-state" id="profileState" role="status">
     <span class="profile-state__dot" aria-hidden="true"></span>
     <span id="profileStateText">正在读取主页…</span>
@@ -77,6 +89,6 @@
   <script>
     window.HDU_API_BASE_URL = window.HDU_API_BASE_URL || '';
   </script>
-  <script src="profile.js?v=20261107-profile"></script>
+  <script src="profile.js?v=20261108-album-shredder"></script>
 </body>
 </html>

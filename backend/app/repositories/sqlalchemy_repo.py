@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from datetime import timezone
 
 from sqlalchemy import func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Quest, Rating, User, utcnow
-from .base import NewQuest, QuestRecord, QuestRepository, RatingSummary, StatsRecord
+from .base import NewQuest, QuestImage, QuestRecord, QuestRepository, RatingSummary, StatsRecord
 
 
 def _ensure_utc(value):
@@ -17,6 +18,22 @@ def _ensure_utc(value):
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
     return value
+
+
+def _images_for(quest: Quest) -> list[QuestImage]:
+    if quest.images_json:
+        try:
+            payload = json.loads(quest.images_json)
+            images = [
+                QuestImage(url=str(item["url"]), filename=str(item.get("filename", "")))
+                for item in payload
+                if isinstance(item, dict) and item.get("url")
+            ]
+            if images:
+                return images
+        except (ValueError, TypeError):
+            pass
+    return [QuestImage(url=quest.image_url, filename=quest.image_filename)]
 
 
 def _as_record(
@@ -37,6 +54,7 @@ def _as_record(
         category=quest.category,
         image_url=quest.image_url,
         image_filename=quest.image_filename,
+        images=_images_for(quest),
         motion_url=quest.motion_url,
         motion_filename=quest.motion_filename,
         status=quest.status,
@@ -231,6 +249,7 @@ class SqlAlchemyQuestRepository(QuestRepository):
         return _as_record(row[0], row[1], row[2], row[3], row[4])
 
     async def create_quest(self, data: NewQuest) -> QuestRecord:
+        images = data.images or [QuestImage(url=data.image_url, filename=data.image_filename)]
         quest = Quest(
             owner_id=data.owner_id,
             title=data.title,
@@ -242,6 +261,10 @@ class SqlAlchemyQuestRepository(QuestRepository):
             category=data.category,
             image_url=data.image_url,
             image_filename=data.image_filename,
+            images_json=json.dumps(
+                [{"url": image.url, "filename": image.filename} for image in images],
+                ensure_ascii=False,
+            ),
             motion_url=data.motion_url,
             motion_filename=data.motion_filename,
             motion_mime=data.motion_mime,

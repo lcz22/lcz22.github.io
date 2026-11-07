@@ -10,6 +10,7 @@ from .schemas import QuestOut
 def to_quest_out(record: QuestRecord, user: User | None) -> QuestOut:
     is_admin = bool(user and user.role == "admin")
     is_owner = bool(user and record.owner_id and record.owner_id == user.id)
+    images = [image.url for image in record.images] or [record.image_url]
     return QuestOut(
         id=record.id,
         title=record.title,
@@ -21,6 +22,9 @@ def to_quest_out(record: QuestRecord, user: User | None) -> QuestOut:
         stamp=record.stamp,
         category=record.category,  # validated at write time
         image=record.image_url,
+        images=images,
+        image_count=len(images),
+        is_album=len(images) > 1,
         motion=record.motion_url,
         has_motion=bool(record.motion_url),
         score=round(record.average_score, 1) if record.average_score is not None else None,

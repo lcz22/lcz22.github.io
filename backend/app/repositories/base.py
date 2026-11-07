@@ -8,8 +8,14 @@ production), but another database can be supplied later by implementing them.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, time
+
+
+@dataclass(slots=True)
+class QuestImage:
+    url: str
+    filename: str
 
 
 @dataclass(slots=True)
@@ -31,6 +37,7 @@ class NewQuest:
     motion_url: str | None = None
     motion_filename: str | None = None
     motion_mime: str | None = None
+    images: list[QuestImage] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -45,6 +52,7 @@ class QuestRecord:
     category: str
     image_url: str
     image_filename: str
+    images: list[QuestImage]
     motion_url: str | None
     motion_filename: str | None
     status: str

@@ -69,6 +69,7 @@ class Quest(Base):
     category: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     image_url: Mapped[str] = mapped_column(String(500), nullable=False)
     image_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    images_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     motion_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     motion_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     motion_mime: Mapped[str | None] = mapped_column(String(80), nullable=True)

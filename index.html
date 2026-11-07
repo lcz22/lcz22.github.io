@@ -8,7 +8,7 @@
   <title>杭电支线 · HDU SIDE QUESTS</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="assets/fonts/noto-serif-sc-subset.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261107-visible-toprated">
+  <link rel="stylesheet" href="styles.css?v=20261108-album-shredder">
 </head>
 <body>
   <div class="grain" aria-hidden="true"></div>
@@ -306,32 +306,55 @@
 
       <div class="detail-grid">
         <figure class="detail-visual">
-          <div class="reflective-card" id="reflectiveCard">
-            <div class="reflective-card__body" id="reflectiveBody">
-              <img class="reflective-card__photo" id="detailImage" src="" alt="">
-              <video class="reflective-card__motion" id="detailVideo" playsinline controls muted loop hidden></video>
-              <button class="motion-toggle" id="motionToggle" type="button" hidden>
-                <span class="motion-toggle__dot" aria-hidden="true"></span>
-                <span id="motionToggleLabel">实况</span>
-              </button>
-              <button class="owner-avatar" id="ownerAvatar" type="button" hidden aria-label="查看投稿人主页">
-                <span id="ownerAvatarText" aria-hidden="true">杭</span>
-              </button>
-              <span class="reflective-card__brush" aria-hidden="true"></span>
-              <span class="reflective-card__vignette" aria-hidden="true"></span>
-              <span class="reflective-card__glare" aria-hidden="true"></span>
-              <span class="reflective-card__sheen" aria-hidden="true"></span>
-              <span class="reflective-card__rim" aria-hidden="true"></span>
-              <div class="detail-visual__stamp">
-                <span>CAPTURED</span>
-                <strong id="detailStampDate">2025.10.02</strong>
-                <span id="detailStampPlace">FUJIAN · PINGTAN</span>
-              </div>
-              <div class="detail-visual__corner" aria-hidden="true">
-                <svg viewBox="0 0 40 40" fill="none"><path d="M1 39V1h38" stroke="currentColor"/></svg>
+          <div class="album-stack" id="albumStack" aria-hidden="true"></div>
+          <div class="flip-stage">
+            <div class="flip-card" id="flipCard">
+              <div class="flip-card__inner" id="flipInner">
+                <div class="flip-card__face flip-card__front">
+                  <div class="reflective-card" id="reflectiveCard">
+                    <div class="reflective-card__body" id="reflectiveBody">
+                      <img class="reflective-card__photo" id="detailImage" src="" alt="">
+                      <video class="reflective-card__motion" id="detailVideo" playsinline controls muted loop hidden></video>
+                      <button class="motion-toggle" id="motionToggle" type="button" hidden>
+                        <span class="motion-toggle__dot" aria-hidden="true"></span>
+                        <span id="motionToggleLabel">实况</span>
+                      </button>
+                      <button class="owner-avatar" id="ownerAvatar" type="button" hidden aria-label="查看投稿人主页">
+                        <span id="ownerAvatarText" aria-hidden="true">杭</span>
+                      </button>
+                      <span class="reflective-card__brush" aria-hidden="true"></span>
+                      <span class="reflective-card__vignette" aria-hidden="true"></span>
+                      <span class="reflective-card__glare" aria-hidden="true"></span>
+                      <span class="reflective-card__sheen" aria-hidden="true"></span>
+                      <span class="reflective-card__rim" aria-hidden="true"></span>
+                      <div class="detail-visual__stamp">
+                        <span>CAPTURED</span>
+                        <strong id="detailStampDate">2025.10.02</strong>
+                        <span id="detailStampPlace">FUJIAN · PINGTAN</span>
+                      </div>
+                      <div class="detail-visual__corner" aria-hidden="true">
+                        <svg viewBox="0 0 40 40" fill="none"><path d="M1 39V1h38" stroke="currentColor"/></svg>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="flip-card__face flip-card__back" id="flipBack">
+                  <div class="flip-back__head">
+                    <span>RATING / 背面</span>
+                    <strong>翻回照片</strong>
+                  </div>
+                  <div class="flip-back__scroll" id="flipBackContent"></div>
+                  <p class="flip-back__hint">拖动星星评分，再点一次可以收回。翻转按钮回到照片。</p>
+                </div>
               </div>
             </div>
           </div>
+          <div class="album-controls" id="albumControls" hidden>
+            <button type="button" id="albumPrev" aria-label="上一张图集照片">←</button>
+            <span id="albumCounter">1 / 1</span>
+            <button type="button" id="albumNext" aria-label="下一张图集照片">→</button>
+          </div>
+          <button class="flip-toggle" id="flipToggle" type="button">翻到背面 <span>↗</span></button>
         </figure>
 
         <div class="detail-content" id="detailContent">
@@ -407,7 +430,7 @@
                 复制这条支线的位置
               </button>
 
-              <button class="hold-delete" id="holdDelete" type="button" aria-describedby="holdHint">
+              <button class="hold-delete" id="holdDelete" type="button" aria-describedby="holdHint" hidden>
                 <span class="hold-delete__fill" aria-hidden="true"></span>
                 <span class="hold-delete__label">
                   <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.5 7v4M9.5 7v4" stroke="currentColor" stroke-linecap="round"/></svg>
@@ -441,13 +464,13 @@
         <div class="upload-layout">
           <div class="upload-media">
             <label class="dropzone" id="dropzone" for="fileInput" tabindex="0">
-              <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/bmp,image/heic,image/heif,.jpg,.jpeg,.jfif,.heic,.heif" hidden>
+              <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/bmp,image/heic,image/heif,.jpg,.jpeg,.jfif,.heic,.heif" multiple hidden>
 
               <div class="dropzone__empty" id="dropEmpty">
                 <span class="dropzone__plus" aria-hidden="true">+</span>
                 <strong>把照片拖进来</strong>
-                <p>或点击选择 · JPG / PNG / WEBP / HEIC<br>单张不超过 20MB</p>
-                <span class="dropzone__hint">一张照片，就是杭电生活的一个切面</span>
+                <p>或点击选择 · 最多 9 张 · JPG / PNG / HEIC<br>单张不超过 20MB</p>
+                <span class="dropzone__hint">多张照片会收成一份图集</span>
               </div>
 
               <div class="dropzone__preview" id="dropPreview" hidden>
@@ -457,6 +480,15 @@
                   <span id="fileMeta">0 MB</span>
                 </div>
                 <button class="dropzone__replace" id="replaceFile" type="button">换一张</button>
+              </div>
+
+              <div class="album-preview" id="albumPreview" hidden>
+                <div class="album-preview__stack" id="uploadAlbumStack"></div>
+                <div class="album-preview__meta">
+                  <strong id="uploadAlbumCount">0 张</strong>
+                  <span>图集 · 会以图层叠放展示</span>
+                </div>
+                <button class="dropzone__replace" id="albumClear" type="button">重新选择</button>
               </div>
 
               <span class="dropzone__corners" aria-hidden="true"></span>
@@ -618,6 +650,7 @@
           <div class="quest-card__top">
             <span class="quest-card__cat"></span>
             <span class="quest-card__review" hidden></span>
+            <span class="quest-card__album" hidden></span>
             <span class="quest-card__no"></span>
           </div>
           <span class="quest-card__open">
@@ -644,6 +677,6 @@
     // 后端部署到 ECS 后，把这里改成 https://api.你的域名/api。
     window.HDU_API_BASE_URL = window.HDU_API_BASE_URL || '';
   </script>
-  <script src="app.js?v=20261107-visible-toprated"></script>
+  <script src="app.js?v=20261108-album-shredder"></script>
 </body>
 </html>

@@ -323,6 +323,33 @@ def test_heic_and_motion_upload(client: TestClient) -> None:
     assert response.status_code == 204
 
 
+def test_album_upload(client: TestClient) -> None:
+    user = register(client, "iris", "iris@example.com")
+    response = client.post(
+        "/api/quests",
+        headers=auth(user["access_token"]),
+        data={
+            "title": "图集测试",
+            "shot_date": "2026-11-07",
+            "shot_time": "22:40",
+            "category": "校园",
+        },
+        files=[
+            ("images", ("one.jpg", image_bytes(), "image/jpeg")),
+            ("images", ("two.jpg", image_bytes(), "image/jpeg")),
+            ("images", ("three.jpg", image_bytes(), "image/jpeg")),
+        ],
+    )
+    assert response.status_code == 201, response.text
+    payload = response.json()
+    assert payload["is_album"] is True
+    assert payload["image_count"] == 3
+    assert len(payload["images"]) == 3
+    for url in payload["images"]:
+        assert client.get(url.replace("http://testserver", "")).status_code == 200
+    assert client.delete(f"/api/quests/{payload['id']}", headers=auth(user["access_token"])).status_code == 204
+
+
 def test_public_profile(client: TestClient) -> None:
     user = register(client, "gina", "gina@example.com")
     quest = create_quest(client, user["access_token"], title="主页里的支线")

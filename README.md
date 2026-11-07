@@ -55,14 +55,16 @@ python -m app.create_admin admin admin@example.com "你的管理员密码"
 - **权限管理**：普通用户 / 管理员两种角色；管理员可以查看用户、修改角色、停用账号、审核投稿、删除任意投稿。
 - **停用账号隔离**：被停用用户的投稿不会出现在主页背景、索引和公开详情中；管理员仍能在管理后台看到并处理。
 - **内容审核**：新投稿默认进入待审核；作者能看到自己的待审 / 未通过内容和原因，游客只能看到已公开内容；管理员按待审 / 已公开 / 未通过筛选并填写拒绝原因。
+- **多图图集**：一次最多选择 9 张照片；上传时层叠预览，详情中用 Stack 图层切换照片。
+- **翻转卡片**：照片详情正面显示图片和投稿人头像，背面放置评分、星级和评分人数。
+- **主页粉碎删除**：详情页不再提供删除按钮；用户在自己的主页把投稿拖到右下角的粉碎入口，播放粉碎动效并调用 FastAPI 删除接口。
 - **实况照片**：支持 HEIC / HEIF 静态图；上传时可附带一段 MP4 / MOV 实况视频，服务端用 ffmpeg 转码为 H.264 MP4，详情页提供「实况」播放按钮。
-- **Grid Motion 背景**：4 行斜向照片墙持续漂移，背景只展示站内评分较高的 10 张照片；鼠标移动会带来轻微视差与逐张照片的点亮效果。
-- **单图详情**：拍摄日期、时间、地点、当下的感受、分类注脚与照片编号；进入详情时照片会从索引卡片或背景照片的位置展开，内容再分层淡入。
+- **Grid Motion 背景**：4 行斜向照片墙持续漂移，背景只展示站内评分较高且状态正常的照片；鼠标移动会带来轻微视差与逐张照片的点亮效果。
+- **单图详情**：日期、时间、地点、感受与分类注脚；照片框支持图集叠层和翻转，评分位于翻转卡背面。
 - **Reflective Card 图片卡**：照片嵌在一张会随鼠标轻微倾斜的金属相片卡中，边缘有拉丝金属、移动高光与反光层。
 - **Peek Rating 评分**：鼠标悬停时星星会上浮、放大并显示评分标签，点击提交；再次点击同一颗星可收回评分。支持键盘方向键与屏幕阅读器。
-- **Hold Button 删除**：作者的投稿、预设支线的本机隐藏可以按住 2 秒完成；普通游客不能删除他人的投稿，管理员可以删除任意投稿。
 - **Sling Button 上传入口**：首页右下角的圆形按钮可以点击，也可以向外拖拽后松开发射；打开上传窗口。
-- **照片上传**：支持 JPG / PNG / WEBP / GIF / AVIF / BMP / HEIC，拖拽或点击选择，单张最大 20MB。JPG 优先在浏览器压缩；浏览器无法解码或画布失败时，自动改为上传原图由服务端压缩。HEIC 由后端转换。
+- **照片上传**：支持 JPG / PNG / WEBP / GIF / AVIF / BMP / HEIC，拖拽或点击选择，单张最大 20MB，一次最多 9 张。JPG 优先在浏览器压缩；浏览器无法解码或画布失败时，自动改为上传原图由服务端压缩。HEIC 由后端转换。
 - **Glide Select 选择器**：图片类目使用滑动的 Glide Select；拍摄日期拆成年 / 月 / 日三个联动的 Glide Select，切换月份时会自动校正天数，菜单带高亮滑轨、方向键操作和视口边缘翻转。
 - **杭电分类**：校园 / 下沙 / 杭州 / 相遇 / 深夜，支持筛选、空状态与恢复隐藏内容。
 - **辅助动效**：标题 BlurText 入场、卡片 3D 倾斜、点击火花（ClickSpark）、滚动揭示、数字递增、斜向 Marquee。
@@ -80,12 +82,14 @@ python -m app.create_admin admin admin@example.com "你的管理员密码"
 | 拖拽 / 点击右下圆形按钮 | 登录后打开投稿窗口 |
 | 在详情页拖拽星星 | 预览分数并显示标签 |
 | 点击星星 / 再点一次 | 提交评分 / 收回评分 |
+| 点击「翻到背面」 | 在图片与评分背面之间翻转 |
+| 图集：点击左右箭头 / `←` `→` | 切换图集中的照片 |
 | 类目或日期选择器：`↑` `↓` `Home` `End` | 在高亮行间移动 |
 | 类目或日期选择器：`Enter` / `Space` | 确认选择 |
-| 按住详情页底部按钮 2 秒 | 删除自己的投稿 / 隐藏预设支线 |
+| 在自己的主页拖动投稿到粉碎入口 | 播放粉碎动效并删除投稿 |
 | 详情页 `←` / `→` | 上一条 / 下一条 |
 | `Esc` | 关闭弹层 |
-| 拖拽照片到上传框 | 选择照片 |
+| 拖拽照片到上传框 | 选择一张或多张照片 |
 
 ## 数据存储与「共享」说明
 
@@ -181,7 +185,9 @@ python -m app.create_admin admin admin@example.com "你的管理员密码"
 
 - 背景图片网格动效参考 [React Bits — Grid Motion](https://www.reactbits.dev/backgrounds/grid-motion)
 - 详情图片卡片参考 [React Bits — Reflective Card](https://www.reactbits.dev/components/reflective-card)
-- 长按删除按钮参考 [React Bits — Hold Button](https://www.reactbits.dev/micro/hold-button)
+- 长按删除按钮参考 [React Bits — Hold Button](https://www.reactbits.dev/micro/hold-button)（详情页已改为主页粉碎删除）
+- 图集叠层与翻转卡分别参考 React Bits 的 Stack 和 Flip Card 交互思路
+- 主页粉碎动效参考 React Bits 的 Shredder 交互思路
 - 星星评分参考 [React Bits — Peek Rating](https://www.reactbits.dev/micro/peek-rating)
 - 上传按钮参考 [React Bits — Sling Button](https://www.reactbits.dev/micro/sling-button)
 - 类目与日期选择参考 [React Bits — Glide Select](https://www.reactbits.dev/micro/glide-select)

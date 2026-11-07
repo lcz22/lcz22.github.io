@@ -279,11 +279,15 @@ const state = {
   adminTotalUsers: 0,
   adminTotalQuests: 0,
   adminQuestFilter: 'pending',
+  albumIndex: 0,
+  albumQuestId: null,
+  detailFlipped: false,
   filter: 'all',
   activeId: null,
   db: null,
   pendingImage: '',
   pendingFile: null,
+  pendingImages: [],
   pendingMotion: null,
   peekValue: 0,
   peekIndex: null,
@@ -923,8 +927,12 @@ function visibleQuests() {
   return allQuests().filter(quest => !state.hidden.has(quest.id));
 }
 
+function normalQuests() {
+  return visibleQuests().filter(quest => !quest.fromApi || quest.status === 'approved');
+}
+
 function featuredQuests(limit = 10) {
-  const candidates = visibleQuests().filter(quest => !quest.fromApi || quest.status === 'approved');
+  const candidates = normalQuests();
   return [...candidates]
     .sort((left, right) => {
       const a = getRating(left);
@@ -1014,6 +1022,16 @@ const dom = {
   motionToggleLabel: $('#motionToggleLabel'),
   ownerAvatar: $('#ownerAvatar'),
   ownerAvatarText: $('#ownerAvatarText'),
+  ratingCard: $('#ratingCard'),
+  flipCard: $('#flipCard'),
+  flipInner: $('#flipInner'),
+  flipBackContent: $('#flipBackContent'),
+  flipToggle: $('#flipToggle'),
+  albumStack: $('#albumStack'),
+  albumControls: $('#albumControls'),
+  albumCounter: $('#albumCounter'),
+  albumPrev: $('#albumPrev'),
+  albumNext: $('#albumNext'),
   detailReview: $('#detailReview'),
   reflectiveCard: $('#reflectiveCard'),
   detailStampDate: $('#detailStampDate'),
@@ -1054,6 +1072,10 @@ const dom = {
   dropzone: $('#dropzone'),
   dropEmpty: $('#dropEmpty'),
   dropPreview: $('#dropPreview'),
+  albumPreview: $('#albumPreview'),
+  uploadAlbumStack: $('#uploadAlbumStack'),
+  uploadAlbumCount: $('#uploadAlbumCount'),
+  albumClear: $('#albumClear'),
   previewImg: $('#previewImg'),
   fileName: $('#fileName'),
   fileMeta: $('#fileMeta'),
@@ -1485,7 +1507,7 @@ function cardClassFor(index) {
 }
 
 function updateFilterCounts() {
-  const list = visibleQuests();
+  const list = normalQuests();
   const allButton = $('[data-filter="all"]', dom.filters);
   if (allButton) $('span', allButton).textContent = String(list.length);
 
@@ -1500,7 +1522,7 @@ function updateFilterCounts() {
 }
 
 function renderGallery() {
-  const list = visibleQuests();
+  const list = normalQuests();
   const fragment = document.createDocumentFragment();
   dom.gallery.innerHTML = '';
 
@@ -1538,6 +1560,14 @@ function renderGallery() {
       reviewBadge.classList.add(`is-${reviewStatus}`);
     } else {
       reviewBadge.hidden = true;
+    }
+
+    const albumBadge = $('.quest-card__album', card);
+    if (quest.image_count > 1) {
+      albumBadge.hidden = false;
+      albumBadge.textContent = `图集 ${quest.image_count}`;
+    } else {
+      albumBadge.hidden = true;
     }
 
     if (quest.isUser && (!quest.fromApi || quest.is_owner)) {
@@ -1636,7 +1666,7 @@ function setupFilters() {
    --------------------------------------------------------- */
 
 function aggregateAverage() {
-  const list = visibleQuests();
+  const list = normalQuests();
   let votes = 0;
   let sum = 0;
   list.forEach(quest => {
@@ -1648,7 +1678,7 @@ function aggregateAverage() {
 }
 
 function updateStats() {
-  const list = visibleQuests();
+  const list = normalQuests();
   const average = aggregateAverage();
 
   dom.statQuests.dataset.count = String(list.length);
@@ -2019,6 +2049,7 @@ function renderDetail(quest) {
   const next = visible.length > 1 ? visible[(visibleIndex + 1) % visible.length] : null;
   const rating = getRating(quest);
 
+  setDetailFlip(false);
   stopDetailMotion();
   dom.motionToggle.hidden = !quest.motion;
   dom.motionToggleLabel.textContent = '实况';
@@ -2039,8 +2070,7 @@ function renderDetail(quest) {
 
   dom.detailIndex.textContent = `${pad(index + 1)} / ${pad(archive.length)}`;
   dom.detailCategory.textContent = quest.category;
-  dom.detailImage.src = quest.image;
-  dom.detailImage.alt = `${quest.title}，拍摄于${quest.place}`;
+  renderAlbum(quest);
   dom.detailStampDate.textContent = quest.date;
   dom.detailStampPlace.textContent = quest.stamp || 'PERSONAL ARCHIVE';
   dom.detailDate.textContent = quest.date;
@@ -2063,7 +2093,7 @@ function renderDetail(quest) {
   dom.holdDelete.removeAttribute('data-done');
   dom.holdDelete.removeAttribute('data-holding');
   dom.holdDelete.style.setProperty('--hold-p', '0');
-  dom.holdDelete.hidden = Boolean(quest.fromApi && quest.isUser && !quest.can_delete);
+  dom.holdDelete.hidden = true;
   if (quest.fromApi && quest.isUser) {
     dom.holdDeleteText.textContent = quest.is_owner ? '按住 2 秒 · 删除我的投稿' : '按住 2 秒 · 删除这条投稿';
     $('.hold-delete__done', dom.holdDelete).textContent = '已删除投稿';
@@ -2125,8 +2155,82 @@ function toggleDetailMotion() {
   });
 }
 
+function questImages(quest) {
+  const images = Array.isArray(quest.images) && quest.images.length
+    ? quest.images.filter(Boolean)
+    : [quest.image].filter(Boolean);
+  return images.length ? images : [quest.image];
+}
+
+function setDetailFlip(flipped) {
+  state.detailFlipped = Boolean(flipped);
+  dom.flipCard?.classList.toggle('is-flipped', state.detailFlipped);
+  if (dom.flipToggle) {
+    dom.flipToggle.innerHTML = state.detailFlipped
+      ? '返回照片 <span>↙</span>'
+      : '翻到背面 <span>↗</span>';
+    dom.flipToggle.setAttribute('aria-pressed', String(state.detailFlipped));
+  }
+  if (state.detailFlipped) stopDetailMotion();
+}
+
+function renderAlbum(quest) {
+  const images = questImages(quest);
+  if (state.albumQuestId !== quest.id) {
+    state.albumQuestId = quest.id;
+    state.albumIndex = 0;
+  }
+  state.albumIndex = clamp(state.albumIndex, 0, images.length - 1);
+  const image = images[state.albumIndex];
+
+  dom.detailImage.src = image;
+  dom.detailImage.alt = `${quest.title}，拍摄于${quest.place}`;
+  dom.albumControls.hidden = images.length < 2;
+  dom.albumCounter.textContent = `${state.albumIndex + 1} / ${images.length}`;
+  dom.albumStack.innerHTML = '';
+
+  if (images.length > 1) {
+    for (let offset = 1; offset <= 2; offset += 1) {
+      const ghost = document.createElement('img');
+      ghost.className = 'album-ghost';
+      ghost.alt = '';
+      ghost.style.setProperty('--stack-offset', String(offset));
+      ghost.src = images[(state.albumIndex + offset) % images.length];
+      dom.albumStack.append(ghost);
+    }
+  }
+}
+
+function changeAlbum(direction) {
+  const quest = findQuest(state.activeId);
+  if (!quest) return;
+  const images = questImages(quest);
+  if (images.length < 2) return;
+  state.albumIndex = (state.albumIndex + direction + images.length) % images.length;
+  setDetailFlip(false);
+  renderAlbum(quest);
+  dom.detailImage.animate(
+    [
+      { opacity: 0, transform: 'scale(0.985)' },
+      { opacity: 1, transform: 'scale(1)' }
+    ],
+    { duration: 360, easing: 'cubic-bezier(.22,1,.36,1)' }
+  );
+}
+
+function setupFlipCard() {
+  if (!dom.flipBackContent) return;
+  if (dom.ratingCard && dom.ratingCard.parentElement !== dom.flipBackContent) {
+    dom.flipBackContent.append(dom.ratingCard);
+  }
+  dom.flipToggle.addEventListener('click', () => setDetailFlip(!state.detailFlipped));
+  dom.albumPrev.addEventListener('click', () => changeAlbum(-1));
+  dom.albumNext.addEventListener('click', () => changeAlbum(1));
+  dom.albumStack.addEventListener('click', () => changeAlbum(1));
+}
+
 function navigateDetail(direction) {
-  const list = visibleQuests();
+  const list = normalQuests();
   if (list.length < 2) return;
   const current = list.findIndex(quest => quest.id === state.activeId);
   if (current < 0) return;
@@ -2167,6 +2271,9 @@ function openDetail(id, sourceImage = null) {
 
   detailOpen = true;
   state.activeId = id;
+  state.albumQuestId = null;
+  state.albumIndex = 0;
+  setDetailFlip(false);
   state.lastFocus = document.activeElement;
   if (canFly) {
     state.flightPending = true;
@@ -2304,6 +2411,7 @@ function clearPhotoFlight() {
 function closeDetail(skipFocus = false) {
   if (!detailOpen) return;
   stopDetailMotion();
+  setDetailFlip(false);
   clearPhotoFlight();
   detailOpen = false;
   state.activeId = null;
@@ -3160,6 +3268,7 @@ function closeUpload(skipFocus = false) {
 function resetUploadForm() {
   state.pendingImage = '';
   state.pendingFile = null;
+  state.pendingImages = [];
   state.pendingMotion = null;
   dom.uploadForm.reset();
   dom.fieldDate.value = todayISO();
@@ -3173,6 +3282,8 @@ function resetUploadForm() {
   dom.motionName.textContent = '';
   dom.dropEmpty.hidden = false;
   dom.dropPreview.hidden = true;
+  dom.albumPreview.hidden = true;
+  dom.uploadAlbumStack.innerHTML = '';
   dom.previewImg.removeAttribute('src');
   dom.dropzone.classList.remove('is-invalid', 'is-dragging');
   $('.field', dom.uploadForm)?.classList.remove('is-invalid');
@@ -3189,8 +3300,13 @@ function setupUpload() {
   $$('[data-close-upload]').forEach(element => element.addEventListener('click', () => closeUpload()));
 
   dom.fileInput.addEventListener('change', event => {
-    const file = event.target.files?.[0];
-    if (file) handleFile(file);
+    handleFiles(event.target.files);
+  });
+
+  dom.albumClear.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    clearUploadSelection();
   });
 
   dom.motionPick.addEventListener('click', () => dom.motionInput.click());
@@ -3233,8 +3349,7 @@ function setupUpload() {
   });
 
   dom.dropzone.addEventListener('drop', event => {
-    const file = event.dataTransfer?.files?.[0];
-    if (file) handleFile(file);
+    handleFiles(event.dataTransfer?.files);
   });
 
   dom.dropzone.addEventListener('keydown', event => {
@@ -3276,67 +3391,110 @@ function isMotionFile(file) {
     || /\.(mp4|mov)$/i.test(file.name);
 }
 
-async function handleFile(file) {
-  if (!isImageFile(file)) {
-    showToast('请选择 JPG、PNG、WEBP、GIF 或 AVIF 图片');
-    return;
+async function prepareImage(file) {
+  if (!isImageFile(file)) throw new Error('请选择 JPG、PNG、WEBP、GIF 或 AVIF 图片');
+  if (file.size > MAX_FILE_BYTES) throw new Error('照片超过 20MB，换一张小一点的吧');
+
+  if (isHeicFile(file)) {
+    if (!state.serverMode) throw new Error('HEIC 需要连接 FastAPI 后才能转换，请先启动后端');
+    return { file, preview: heicPlaceholder(file.name), dataUrl: '', note: 'HEIC，服务端转换' };
   }
 
-  if (file.size > MAX_FILE_BYTES) {
-    showToast('照片超过 20MB，换一张小一点的吧');
-    dom.dropzone.classList.add('is-invalid');
-    return;
+  try {
+    const dataUrl = await compressImage(file);
+    return { file, preview: dataUrl, dataUrl, note: '已优化' };
+  } catch (error) {
+    console.error(error);
+    if (!state.serverMode) throw new Error('照片处理失败，请换一张 JPG、PNG 或 HEIC 试试');
+    return { file, preview: serverImagePlaceholder(file), dataUrl: '', note: '服务端压缩' };
   }
+}
+
+async function handleFiles(fileList) {
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
 
   dom.dropzone.classList.remove('is-invalid');
   const strong = $('strong', dom.dropEmpty);
   const originalStrong = strong?.textContent;
-  if (strong) strong.textContent = '正在处理这张照片…';
+  if (strong) strong.textContent = files.length > 1 ? `正在处理 ${files.length} 张照片…` : '正在处理这张照片…';
   dom.dropEmpty.style.opacity = '0.55';
 
-  try {
-    if (isHeicFile(file)) {
-      if (!state.serverMode) {
-        showToast('HEIC 需要连接 FastAPI 后才能转换，请先启动后端');
-        return;
-      }
-      state.pendingFile = file;
-      state.pendingImage = '';
-      dom.previewImg.src = heicPlaceholder(file.name);
-      dom.fileName.textContent = file.name;
-      dom.fileMeta.textContent = `${(file.size / 1024 / 1024).toFixed(1)} MB · HEIC，服务端转换`;
-      dom.dropEmpty.hidden = true;
-      dom.dropPreview.hidden = false;
-      return;
+  const prepared = [];
+  const errors = [];
+  for (const file of files.slice(0, 9)) {
+    try {
+      prepared.push(await prepareImage(file));
+    } catch (error) {
+      errors.push(`${file.name}：${error.message}`);
     }
-
-    const dataUrl = await compressImage(file);
-    state.pendingFile = null;
-    state.pendingImage = dataUrl;
-    dom.previewImg.src = dataUrl;
-    dom.fileName.textContent = file.name;
-    dom.fileMeta.textContent = `${(file.size / 1024 / 1024).toFixed(1)} MB · 已优化`;
-    dom.dropEmpty.hidden = true;
-    dom.dropPreview.hidden = false;
-  } catch (error) {
-    console.error(error);
-    if (state.serverMode) {
-      state.pendingFile = file;
-      state.pendingImage = '';
-      dom.previewImg.src = serverImagePlaceholder(file);
-      dom.fileName.textContent = file.name;
-      dom.fileMeta.textContent = `${(file.size / 1024 / 1024).toFixed(1)} MB · 服务端压缩`;
-      dom.dropEmpty.hidden = true;
-      dom.dropPreview.hidden = false;
-      showToast('浏览器无法预览这张图片，已切换为服务端压缩');
-    } else {
-      showToast('照片处理失败，请换一张 JPG、PNG 或 HEIC 试试');
-    }
-  } finally {
-    if (strong && originalStrong) strong.textContent = originalStrong;
-    dom.dropEmpty.style.opacity = '';
-    dom.fileInput.value = '';
   }
+
+  if (prepared.length) {
+    state.pendingImages = prepared;
+    state.pendingImage = prepared.length === 1 ? prepared[0].dataUrl : '';
+    state.pendingFile = prepared.length === 1 && !prepared[0].dataUrl ? prepared[0].file : null;
+    renderUploadSelection();
+    if (files.length > 9) showToast('一次最多收录 9 张照片，超出的已忽略');
+    if (errors.length) showToast(errors[0]);
+  } else if (errors.length) {
+    dom.dropzone.classList.add('is-invalid');
+    showToast(errors[0]);
+  }
+
+  if (strong && originalStrong) strong.textContent = originalStrong;
+  dom.dropEmpty.style.opacity = '';
+  dom.fileInput.value = '';
+}
+
+function renderUploadSelection() {
+  const items = state.pendingImages;
+  dom.dropEmpty.hidden = items.length > 0;
+
+  if (!items.length) {
+    dom.dropPreview.hidden = true;
+    dom.albumPreview.hidden = true;
+    dom.uploadAlbumStack.innerHTML = '';
+    dom.previewImg.removeAttribute('src');
+    return;
+  }
+
+  if (items.length === 1) {
+    const item = items[0];
+    dom.dropPreview.hidden = false;
+    dom.albumPreview.hidden = true;
+    dom.previewImg.src = item.preview;
+    dom.fileName.textContent = item.file.name;
+    dom.fileMeta.textContent = `${(item.file.size / 1024 / 1024).toFixed(1)} MB · ${item.note}`;
+    return;
+  }
+
+  dom.dropPreview.hidden = true;
+  dom.albumPreview.hidden = false;
+  dom.uploadAlbumCount.textContent = `${items.length} 张`;
+  dom.uploadAlbumStack.innerHTML = '';
+  items.slice(0, 3).forEach((item, index) => {
+    const img = document.createElement('img');
+    img.src = item.preview;
+    img.alt = '';
+    img.style.setProperty('--album-index', String(index));
+    dom.uploadAlbumStack.append(img);
+  });
+}
+
+function clearUploadSelection() {
+  state.pendingImages = [];
+  state.pendingImage = '';
+  state.pendingFile = null;
+  dom.fileInput.value = '';
+  dom.dropPreview.hidden = true;
+  dom.albumPreview.hidden = true;
+  dom.previewImg.removeAttribute('src');
+  dom.uploadAlbumStack.innerHTML = '';
+  dom.dropEmpty.hidden = false;
+  dom.dropEmpty.style.opacity = '';
+  const strong = $('strong', dom.dropEmpty);
+  if (strong) strong.textContent = '把照片拖进来';
 }
 
 function heicPlaceholder(name) {
@@ -3433,7 +3591,7 @@ async function submitUpload() {
   const feeling = dom.fieldFeeling.value.trim();
   const dateISO = dom.fieldDate.value || todayISO();
 
-  if (!state.pendingImage && !state.pendingFile) {
+  if (!state.pendingImage && !state.pendingFile && !state.pendingImages.length) {
     dom.dropzone.classList.add('is-invalid');
     dom.dropzone.scrollIntoView({ behavior: 'smooth', block: 'center' });
     showToast('先放一张照片进来，支线才有入口');
@@ -3462,7 +3620,8 @@ async function submitUpload() {
     stamp: `PERSONAL ARCHIVE · ${isoToDisplay(dateISO)}`,
     category: CATEGORIES.includes(dom.fieldCategory.value) ? dom.fieldCategory.value : '校园',
     feeling: feeling || '有些时刻来不及描述，只能先把它留下来。',
-    image: state.pendingImage,
+    image: state.pendingImage || state.pendingImages[0]?.dataUrl || '',
+    images: state.pendingImages.map(item => item.dataUrl).filter(Boolean),
     baseScore: 0,
     baseVotes: 0,
     isUser: true,
@@ -3513,8 +3672,18 @@ async function submitServerUpload({ title, place, feeling, dateISO }) {
     form.append('place', place || '杭电 · 未命名地点');
     form.append('feeling', feeling || '有些时刻来不及描述，只能先把它留下来。');
     form.append('category', CATEGORIES.includes(dom.fieldCategory.value) ? dom.fieldCategory.value : '校园');
-    const imageBlob = state.pendingFile || dataUrlToBlob(state.pendingImage);
-    form.append('image', imageBlob, state.pendingFile?.name || 'hdu-daily.jpg');
+    const prepared = state.pendingImages.length
+      ? state.pendingImages
+      : [{
+          file: state.pendingFile,
+          dataUrl: state.pendingImage,
+          preview: state.pendingImage,
+          note: ''
+        }];
+    for (const item of prepared) {
+      const imageBlob = item.file || dataUrlToBlob(item.dataUrl);
+      form.append('images', imageBlob, item.file?.name || 'hdu-daily.jpg');
+    }
     if (state.pendingMotion) {
       form.append('motion', state.pendingMotion, state.pendingMotion.name || 'hdu-motion.mp4');
     }
@@ -3910,6 +4079,7 @@ async function init() {
   setupMenu();
   setupFilters();
   setupReflectiveCard();
+  setupFlipCard();
   setupDetail();
   setupGlideSelects();
   setupUpload();

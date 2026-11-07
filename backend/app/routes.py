@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import CATEGORIES, settings
 from .db import get_session
-from .repositories import NewQuest, QuestRepository, SqlAlchemyQuestRepository
+from .repositories import NewQuest, QuestImage, QuestRepository, SqlAlchemyQuestRepository
 from .schemas import (
     CategoriesOut,
     HealthOut,
@@ -44,6 +44,7 @@ router = APIRouter()
 MAX_TITLE = 32
 MAX_PLACE = 40
 MAX_FEELING = 220
+MAX_ALBUM_IMAGES = 9
 
 
 def get_repository(session: Annotated[AsyncSession, Depends(get_session)]) -> QuestRepository:
@@ -138,7 +139,8 @@ async def create_quest(
     place: Annotated[str, Form(max_length=MAX_PLACE)] = "",
     feeling: Annotated[str, Form(max_length=MAX_FEELING)] = "",
     category: Annotated[str, Form()] = "校园",
-    image: UploadFile = File(...),
+    image: UploadFile | None = File(None),
+    images: list[UploadFile] | None = File(None),
     motion: UploadFile | None = File(None),
 ) -> QuestOut:
     clean_title = title.strip()
@@ -147,9 +149,21 @@ async def create_quest(
     if category not in CATEGORIES:
         raise HTTPException(status_code=422, detail="未知的分类")
 
+    upload_files = list(images or [])
+    if image is not None:
+        upload_files.append(image)
+    if not upload_files:
+        raise HTTPException(status_code=422, detail="至少需要一张照片")
+    if len(upload_files) > MAX_ALBUM_IMAGES:
+        raise HTTPException(status_code=422, detail=f"一次最多上传 {MAX_ALBUM_IMAGES} 张照片")
+
+    stored_images = []
     try:
-        stored = await storage.save(image)
+        for upload in upload_files:
+            stored_images.append(await storage.save(upload))
     except InvalidImageError as exc:
+        for stored in stored_images:
+            storage.delete(stored.filename)
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     stored_motion = None
@@ -157,9 +171,11 @@ async def create_quest(
         try:
             stored_motion = await storage.save_motion(motion)
         except InvalidMotionError as exc:
-            storage.delete(stored.filename)
+            for stored in stored_images:
+                storage.delete(stored.filename)
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    cover = stored_images[0]
     data = NewQuest(
         title=clean_title,
         shot_date=shot_date,
@@ -168,8 +184,9 @@ async def create_quest(
         feeling=feeling.strip() or "有些时刻来不及描述，只能先把它留下来。",
         stamp=f"PERSONAL ARCHIVE · {shot_date.strftime('%Y.%m.%d')}",
         category=category,
-        image_url=stored.url,
-        image_filename=stored.filename,
+        image_url=cover.url,
+        image_filename=cover.filename,
+        images=[QuestImage(url=item.url, filename=item.filename) for item in stored_images],
         motion_url=stored_motion.url if stored_motion else None,
         motion_filename=stored_motion.filename if stored_motion else None,
         motion_mime=stored_motion.mime if stored_motion else None,
@@ -179,7 +196,8 @@ async def create_quest(
     try:
         record = await repository.create_quest(data)
     except Exception:
-        storage.delete(stored.filename)
+        for stored in stored_images:
+            storage.delete(stored.filename)
         if stored_motion:
             storage.delete(stored_motion.filename)
         raise
@@ -216,7 +234,8 @@ async def delete_quest(
     deleted = await repository.delete_quest(quest_id)
     if deleted is None:
         raise HTTPException(status_code=404, detail="没有找到这条支线")
-    storage.delete(deleted.image_filename)
+    for image in deleted.images:
+        storage.delete(image.filename)
     storage.delete(deleted.motion_filename)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

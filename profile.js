@@ -18,6 +18,8 @@ const profileDom = {
   grid: document.getElementById('profileGrid'),
   empty: document.getElementById('profileEmpty'),
   title: document.getElementById('profileSubmissionsTitle'),
+  shredder: document.getElementById('shredder'),
+  shredderDrop: document.getElementById('shredderDrop'),
   state: document.getElementById('profileState'),
   stateText: document.getElementById('profileStateText'),
   stateBack: document.getElementById('profileStateBack')
@@ -113,6 +115,13 @@ function setState(message, error = false) {
   profileDom.stateBack.hidden = !error;
 }
 
+let toastTimer = 0;
+function showToast(message) {
+  window.clearTimeout(toastTimer);
+  setState(message);
+  toastTimer = window.setTimeout(() => setState(''), 3000);
+}
+
 function renderEmpty(message) {
   profileDom.empty.hidden = false;
   profileDom.empty.innerHTML = message;
@@ -125,7 +134,7 @@ function statusLabel(status) {
   return '';
 }
 
-function renderCard(quest) {
+function renderCard(quest, canDelete) {
   const status = statusLabel(quest.status);
   const score = typeof quest.score === 'number' ? quest.score.toFixed(1) : 'NEW';
   const statusMarkup = status
@@ -133,10 +142,13 @@ function renderCard(quest) {
     : '';
   const motionMarkup = quest.has_motion
     ? '<span class="profile-card__motion">实况</span><span class="profile-card__play" aria-hidden="true">▶</span>'
-    : '';
-  return `<a class="profile-card" href="index.html?quest=${encodeURIComponent(quest.id)}">
+    : quest.image_count > 1
+      ? `<span class="profile-card__motion">图集 ${quest.image_count}</span>`
+      : '';
+  return `<a class="profile-card" href="index.html?quest=${encodeURIComponent(quest.id)}"
+    data-quest-id="${escapeHTML(quest.id)}" draggable="${canDelete ? 'true' : 'false'}">
     <div class="profile-card__media">
-      <img src="${escapeHTML(quest.image)}" alt="${escapeHTML(quest.title)}" loading="lazy" decoding="async">
+      <img src="${escapeHTML(quest.image)}" alt="${escapeHTML(quest.title)}" loading="lazy" decoding="async" draggable="false">
       <span class="profile-card__shade" aria-hidden="true"></span>
       ${statusMarkup}
       ${motionMarkup}
@@ -167,7 +179,8 @@ function renderProfile(profile, me) {
     ? '—'
     : profile.stats.average_score.toFixed(1);
   profileDom.count.textContent = `${profile.quests.length} 条`;
-  profileDom.grid.innerHTML = profile.quests.map(renderCard).join('');
+  profileDom.grid.innerHTML = profile.quests.map(quest => renderCard(quest, profile.is_self)).join('');
+  profileDom.shredder.hidden = !profile.is_self;
 
   if (!profile.quests.length) {
     renderEmpty(profile.is_self
@@ -224,4 +237,110 @@ async function load() {
   }
 }
 
+async function deleteQuest(questId) {
+  const base = apiBase();
+  const token = authToken();
+  if (!base) throw new Error('主页服务尚未连接');
+  const response = await fetch(`${base}/quests/${encodeURIComponent(questId)}`, {
+    method: 'DELETE',
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  if (!response.ok) {
+    let detail = `删除失败（${response.status}）`;
+    try {
+      const payload = await response.json();
+      if (payload?.detail) detail = payload.detail;
+    } catch (error) {
+      /* ignore */
+    }
+    throw new Error(detail);
+  }
+}
+
+function shredImage(image) {
+  const rect = image.getBoundingClientRect();
+  const strips = 12;
+  const stripWidth = rect.width / strips;
+  const layer = document.createElement('div');
+  layer.className = 'shred-layer';
+  layer.setAttribute('aria-hidden', 'true');
+
+  for (let index = 0; index < strips; index += 1) {
+    const strip = document.createElement('span');
+    strip.className = 'shred-strip';
+    strip.style.left = `${rect.left + index * stripWidth}px`;
+    strip.style.top = `${rect.top}px`;
+    strip.style.width = `${stripWidth + 1}px`;
+    strip.style.height = `${rect.height}px`;
+    strip.style.backgroundImage = `url("${image.currentSrc || image.src}")`;
+    strip.style.backgroundSize = `${rect.width}px ${rect.height}px`;
+    strip.style.backgroundPosition = `${-index * stripWidth}px 0`;
+    strip.style.setProperty('--shred-x', `${(Math.random() - 0.5) * 150}px`);
+    strip.style.setProperty('--shred-rot', `${(Math.random() - 0.5) * 55}deg`);
+    strip.style.animationDelay = `${Math.random() * 0.12}s`;
+    layer.append(strip);
+  }
+
+  document.body.append(layer);
+  window.setTimeout(() => layer.remove(), 1400);
+}
+
+let draggingCard = null;
+
+async function shredCard(card) {
+  const questId = card?.dataset.questId;
+  const image = card?.querySelector('img');
+  if (!questId || !image) return;
+
+  profileDom.shredder.classList.remove('is-armed', 'is-over');
+  shredImage(image);
+  card.classList.add('is-shredding');
+  try {
+    await deleteQuest(questId);
+    await load();
+    showToast('投稿已粉碎并从档案删除');
+  } catch (error) {
+    card.classList.remove('is-shredding');
+    showToast(error.message || '删除失败，请稍后再试');
+  } finally {
+    draggingCard = null;
+  }
+}
+
+function setupShredder() {
+  profileDom.grid.addEventListener('dragstart', event => {
+    const card = event.target.closest('.profile-card[draggable="true"]');
+    if (!card) return;
+    draggingCard = card;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', card.dataset.questId);
+    profileDom.shredder.classList.add('is-armed');
+  });
+
+  profileDom.grid.addEventListener('dragend', () => {
+    draggingCard = null;
+    profileDom.shredder.classList.remove('is-armed', 'is-over');
+  });
+
+  profileDom.shredderDrop.addEventListener('dragover', event => {
+    if (!draggingCard) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    profileDom.shredder.classList.add('is-over');
+  });
+
+  profileDom.shredderDrop.addEventListener('dragleave', () => {
+    profileDom.shredder.classList.remove('is-over');
+  });
+
+  profileDom.shredderDrop.addEventListener('drop', event => {
+    event.preventDefault();
+    const card = draggingCard || profileDom.grid.querySelector(
+      `.profile-card[data-quest-id="${CSS.escape(event.dataTransfer.getData('text/plain'))}"]`
+    );
+    if (card) shredCard(card);
+  });
+}
+
+setupShredder();
 load();

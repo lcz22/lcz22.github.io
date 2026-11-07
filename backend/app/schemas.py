@@ -72,6 +72,9 @@ class QuestOut(BaseModel):
     stamp: str
     category: Category
     image: str = Field(description="可直接放进 <img src> 的图片 URL")
+    images: list[str] = Field(default_factory=list, description="图集图片 URL，至少包含封面")
+    image_count: int = 1
+    is_album: bool = False
     motion: str | None = Field(default=None, description="实况照片的可选视频 URL")
     has_motion: bool = False
     score: float | None

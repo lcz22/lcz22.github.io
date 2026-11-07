@@ -192,7 +192,10 @@ python -m app.create_admin admin admin@example.com "a-strong-password"
 
 | 前端字段 | API 字段 |
 | --- | --- |
-| `q.image` | `image` |
+| `q.image` | 封面图 `image` |
+| `q.images` | 图集图片 URL 列表 |
+| `q.image_count` | 图片数量 |
+| `q.is_album` | 是否图集 |
 | `q.date` | `date`（`2026.11.02`） |
 | `q.iso` | `iso` |
 | `q.time` | `time` |
@@ -228,9 +231,12 @@ ffmpeg 来源：
 ```http
 Content-Type: multipart/form-data
 
-image=@photo.jpg
+images=@photo-1.jpg
+images=@photo-2.jpg
 motion=@live.mov
 ```
+
+`images` 可以重复多次，一次最多 9 张；单张仍受 20MB 限制。旧客户端只传一个 `image` 也兼容。
 
 如果只上传静态图，`motion` 留空即可。
 
