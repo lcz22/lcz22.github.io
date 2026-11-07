@@ -26,7 +26,8 @@ async def create_admin(username: str, email: str, password: str) -> None:
             existing = await repository.get_by_identifier(email)
         if existing is not None:
             await repository.update(existing, role="admin", is_active=True)
-            print(f"promoted existing user to admin: {existing.username}")
+            await repository.set_password(existing, hash_password(password))
+            print(f"reset password and promoted existing user to admin: {existing.username}")
         else:
             user = await repository.create(
                 username=username.strip(),

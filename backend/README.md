@@ -141,7 +141,7 @@ cd backend
 python -m app.create_admin admin admin@example.com "a-strong-password"
 ```
 
-如果用户名或邮箱已存在，会把该用户提升为管理员；否则会创建新账号。
+如果用户名或邮箱已存在，会把该用户提升为管理员，并用命令里的新密码重置密码；否则会创建新账号。可以用同一命令修改管理员密码。
 
 正式部署时不要把管理员密码写在命令行历史或代码里。
 

@@ -33,6 +33,9 @@ class UserRepository(ABC):
     async def update(self, user: User, *, role: str | None = None, is_active: bool | None = None) -> User: ...
 
     @abstractmethod
+    async def set_password(self, user: User, password_hash: str) -> None: ...
+
+    @abstractmethod
     async def mark_login(self, user: User) -> None: ...
 
     @abstractmethod
@@ -102,6 +105,10 @@ class SqlAlchemyUserRepository(UserRepository):
         await self.session.commit()
         await self.session.refresh(user)
         return user
+
+    async def set_password(self, user: User, password_hash: str) -> None:
+        user.password_hash = password_hash
+        await self.session.commit()
 
     async def mark_login(self, user: User) -> None:
         from ..models import utcnow
