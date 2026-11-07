@@ -19,7 +19,7 @@ from sqlalchemy import select
 
 from .config import settings
 from .db import SessionLocal, dispose_db, init_db
-from .models import Quest
+from .models import Quest, User
 
 SEED_FILE = Path(__file__).resolve().parent.parent / "seed" / "presets.json"
 
@@ -30,14 +30,33 @@ async def seed() -> None:
 
     inserted = 0
     async with SessionLocal() as session:
-        existing = set(
-            (await session.execute(select(Quest.id))).scalars().all()
-        )
+        archive = (
+            await session.execute(select(User).where(User.username == "杭电档案"))
+        ).scalar_one_or_none()
+        if archive is None:
+            archive = User(
+                username="杭电档案",
+                email="archive@example.com",
+                password_hash="!",
+                role="user",
+                is_active=False,
+            )
+            session.add(archive)
+            await session.flush()
+
+        existing_quests = {
+            quest.id: quest
+            for quest in (await session.execute(select(Quest))).scalars().all()
+        }
         for item in data:
-            if item["id"] in existing:
+            existing = existing_quests.get(item["id"])
+            if existing is not None:
+                if existing.owner_id is None:
+                    existing.owner_id = archive.id
                 continue
             quest = Quest(
                 id=item["id"],
+                owner_id=archive.id,
                 title=item["title"],
                 shot_date=date.fromisoformat(item["iso"]),
                 shot_time=time.fromisoformat(item["time"]),

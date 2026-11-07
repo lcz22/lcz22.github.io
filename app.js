@@ -2040,7 +2040,7 @@ function renderDetail(quest) {
   dom.detailFeeling.textContent = quest.feeling || '有些时刻来不及描述，只能先把它留下来。';
   dom.detailNote.textContent = CATEGORY_NOTES[quest.category] || CATEGORY_NOTES['校园'];
   dom.detailMine.hidden = !quest.isUser || (quest.fromApi && !quest.is_owner);
-  const ownerName = quest.fromApi && quest.isUser ? quest.owner_username : null;
+  const ownerName = quest.fromApi ? quest.owner_username : null;
   dom.ownerAvatar.hidden = !ownerName;
   if (ownerName) {
     dom.ownerAvatarText.textContent = avatarInitial(ownerName);
