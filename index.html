@@ -8,7 +8,7 @@
   <title>杭电支线 · HDU SIDE QUESTS</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="assets/fonts/noto-serif-sc-subset.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261107-ffmpeg2">
+  <link rel="stylesheet" href="styles.css?v=20261107-profile">
 </head>
 <body>
   <div class="grain" aria-hidden="true"></div>
@@ -49,6 +49,7 @@
             <strong id="authMenuName"></strong>
             <span id="authMenuRole"></span>
           </div>
+          <button class="auth-menu__item" id="myProfileButton" type="button" role="menuitem" hidden>我的主页 <span>↗</span></button>
           <button class="auth-menu__item" id="adminPanelButton" type="button" role="menuitem" hidden>管理后台 <span>↗</span></button>
           <button class="auth-menu__item" id="logoutButton" type="button" role="menuitem">退出登录 <span>↗</span></button>
         </div>
@@ -312,6 +313,9 @@
               <button class="motion-toggle" id="motionToggle" type="button" hidden>
                 <span class="motion-toggle__dot" aria-hidden="true"></span>
                 <span id="motionToggleLabel">实况</span>
+              </button>
+              <button class="owner-avatar" id="ownerAvatar" type="button" hidden aria-label="查看投稿人主页">
+                <span id="ownerAvatarText" aria-hidden="true">杭</span>
               </button>
               <span class="reflective-card__brush" aria-hidden="true"></span>
               <span class="reflective-card__vignette" aria-hidden="true"></span>
@@ -640,6 +644,6 @@
     // 后端部署到 ECS 后，把这里改成 https://api.你的域名/api。
     window.HDU_API_BASE_URL = window.HDU_API_BASE_URL || '';
   </script>
-  <script src="app.js?v=20261107-ffmpeg2"></script>
+  <script src="app.js?v=20261107-profile"></script>
 </body>
 </html>

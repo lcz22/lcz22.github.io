@@ -116,6 +116,18 @@ class QuestRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def list_user_quests(
+        self,
+        *,
+        owner_id: str,
+        viewer_id: str | None,
+        include_unpublished: bool,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> tuple[list[QuestRecord], int]:
+        raise NotImplementedError
+
+    @abstractmethod
     async def get_quest(
         self,
         quest_id: str,

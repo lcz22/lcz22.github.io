@@ -93,6 +93,26 @@ class QuestList(BaseModel):
     offset: int
 
 
+class ProfileStats(BaseModel):
+    total: int
+    approved: int
+    pending: int
+    rejected: int
+    ratings_received: int
+    average_score: float | None
+
+
+class UserProfileOut(BaseModel):
+    username: str
+    role: Role
+    created_at: datetime
+    is_self: bool
+    is_admin_viewer: bool
+    email: EmailStr | None = None
+    stats: ProfileStats
+    quests: list[QuestOut]
+
+
 class QuestStatusUpdate(BaseModel):
     status: QuestStatus
     reason: str | None = Field(default=None, max_length=200)

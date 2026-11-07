@@ -51,6 +51,7 @@ python -m app.create_admin admin admin@example.com "你的管理员密码"
 ## 已实现的功能
 
 - **账号系统**：邮箱 + 用户名 + 密码注册登录，JWT 会话；游客可以浏览，登录后可以评分、投稿和删除自己的投稿。
+- **用户主页**：登录后从账号菜单进入「我的主页」，查看自己的全部投稿（含待审核、未通过）；照片详情的右下角有投稿人头像，点击可进入对方主页。
 - **权限管理**：普通用户 / 管理员两种角色；管理员可以查看用户、修改角色、停用账号、审核投稿、删除任意投稿。
 - **内容审核**：新投稿默认进入待审核；作者能看到自己的待审 / 未通过内容和原因，游客只能看到已公开内容；管理员按待审 / 已公开 / 未通过筛选并填写拒绝原因。
 - **实况照片**：支持 HEIC / HEIF 静态图；上传时可附带一段 MP4 / MOV 实况视频，服务端用 ffmpeg 转码为 H.264 MP4，详情页提供「实况」播放按钮。
@@ -122,6 +123,7 @@ OSS（照片）
 - `DELETE /api/quests/{id}`：作者或管理员删除投稿；
 - `GET /api/admin/users`、`PATCH /api/admin/users/{id}`：管理员用户与角色管理；
 - `GET /api/admin/quests`、`PATCH /api/admin/quests/{id}/status`：管理员审核、拒绝原因和筛选；
+- `GET /api/users/{username}`：用户主页、公开投稿和个人统计；
 - `GET /api/stats`、`GET /api/categories`、`GET /api/health`；
 - Swagger 文档：`http://127.0.0.1:8000/docs`。
 
@@ -144,6 +146,9 @@ python -m app.create_admin admin admin@example.com "你的管理员密码"
 ├─ index.html               页面结构
 ├─ styles.css               视觉、动效与响应式
 ├─ app.js                   数据、背景、评分、上传、删除、路由
+├─ profile.html             用户主页
+├─ profile.css              用户主页样式
+├─ profile.js               用户主页数据与渲染
 ├─ start-preview.bat        一键启动本地预览
 ├─ preview-server.mjs       Node 备用静态服务器
 ├─ backend/                 FastAPI 后端（认证、权限、数据库抽象）
@@ -168,6 +173,7 @@ python -m app.create_admin admin admin@example.com "你的管理员密码"
 - 分类与分类注脚在 `app.js` 的 `CATEGORIES`、`CATEGORY_NOTES` 中；筛选按钮需要同步修改 `index.html`。
 - 色彩、字体、间距在 `styles.css` 顶部 `:root` 中统一控制；目前使用杭电蓝 `#4d7cff`。
 - 如需替换照片，把图片放进 `assets/photos/`，再修改对应 `image` 路径。
+- 用户主页通过 `profile.html?u=用户名` 访问；头像目前由用户名生成渐变圆形头像，后续可以扩展为头像上传。
 - 上传照片会经过 `compressImage()` 处理，默认最长边 1800px、JPEG 质量 0.84。
 
 ## 制作参考

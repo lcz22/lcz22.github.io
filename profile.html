@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0a09">
+  <meta name="description" content="杭电支线成员主页：查看 TA 分享的杭电日常。">
+  <title>成员主页 · 杭电支线</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css?v=20261107-profile">
+  <link rel="stylesheet" href="profile.css?v=20261107-profile">
+</head>
+<body class="profile-page">
+  <header class="profile-header">
+    <a class="profile-back" href="index.html">
+      <span aria-hidden="true">←</span>
+      返回档案
+    </a>
+    <a class="profile-brand" href="index.html" aria-label="杭电支线首页">
+      <span class="profile-brand__mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none"><path d="M16 1v30M1 16h30M5.4 5.4l21.2 21.2M26.6 5.4 5.4 26.6" stroke="currentColor"/><circle cx="16" cy="16" r="4.4" stroke="currentColor"/></svg>
+      </span>
+      <span>
+        <strong>杭电支线</strong>
+        <small>MEMBER ARCHIVE</small>
+      </span>
+    </a>
+    <a class="profile-own-link" id="profileOwnLink" href="index.html" hidden>我的主页 <span>↗</span></a>
+  </header>
+
+  <main class="profile-main">
+    <section class="profile-hero" aria-labelledby="profileName">
+      <div class="profile-avatar" id="profileAvatar" aria-hidden="true">杭</div>
+      <div class="profile-identity">
+        <p class="profile-kicker">HDU SIDE QUESTS / MEMBER</p>
+        <h1 id="profileName">成员主页</h1>
+        <div class="profile-meta">
+          <span class="profile-role" id="profileRole">普通成员</span>
+          <span id="profileJoined">加入于 —</span>
+          <span id="profileEmail" hidden></span>
+          <span class="profile-self-badge" id="profileSelfBadge" hidden>这是你的主页</span>
+        </div>
+      </div>
+      <div class="profile-stats" aria-label="主页统计">
+        <div><strong id="statTotal">0</strong><span>投稿</span></div>
+        <div><strong id="statApproved">0</strong><span>已公开</span></div>
+        <div><strong id="statPending">0</strong><span>待审核</span></div>
+        <div><strong id="statRatings">0</strong><span>收到评分</span></div>
+        <div><strong id="statAverage">—</strong><span>平均分</span></div>
+      </div>
+    </section>
+
+    <section class="profile-submissions" aria-labelledby="profileSubmissionsTitle">
+      <header class="profile-section-head">
+        <div>
+          <p class="profile-kicker">THE COLLECTION</p>
+          <h2 id="profileSubmissionsTitle">TA 的支线</h2>
+        </div>
+        <span id="profileCount">0 条</span>
+      </header>
+      <div class="profile-grid" id="profileGrid"></div>
+      <div class="profile-empty" id="profileEmpty" hidden></div>
+    </section>
+  </main>
+
+  <div class="profile-state" id="profileState" role="status">
+    <span class="profile-state__dot" aria-hidden="true"></span>
+    <span id="profileStateText">正在读取主页…</span>
+    <a href="index.html" id="profileStateBack" hidden>返回档案</a>
+  </div>
+
+  <footer class="profile-footer">
+    <span>杭电支线 · HDU SIDE QUESTS</span>
+    <span>非官方学生日常影像档案 · 2026</span>
+  </footer>
+
+  <script>
+    window.HDU_API_BASE_URL = window.HDU_API_BASE_URL || '';
+  </script>
+  <script src="profile.js?v=20261107-profile"></script>
+</body>
+</html>

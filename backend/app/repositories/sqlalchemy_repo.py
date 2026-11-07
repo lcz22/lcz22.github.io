@@ -161,6 +161,34 @@ class SqlAlchemyQuestRepository(QuestRepository):
             for row in rows
         ], total
 
+    async def list_user_quests(
+        self,
+        *,
+        owner_id: str,
+        viewer_id: str | None,
+        include_unpublished: bool,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> tuple[list[QuestRecord], int]:
+        count_stmt = select(func.count(Quest.id)).where(Quest.owner_id == owner_id)
+        if not include_unpublished:
+            count_stmt = count_stmt.where(Quest.status == "approved")
+        total = int((await self.session.execute(count_stmt)).scalar_one())
+
+        stmt = self._statement(public_only=not include_unpublished, viewer_id=viewer_id).where(
+            Quest.owner_id == owner_id
+        )
+        stmt = (
+            stmt.order_by(Quest.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [
+            _as_record(row[0], row[1], row[2], row[3], row[4])
+            for row in rows
+        ], total
+
     async def get_quest(
         self,
         quest_id: str,

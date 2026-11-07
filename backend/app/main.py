@@ -14,6 +14,7 @@ from .auth import router as auth_router
 from .config import settings
 from .db import dispose_db, init_db
 from .routes import router
+from .users import router as users_router
 
 
 @asynccontextmanager
@@ -47,6 +48,7 @@ app.add_middleware(
 app.include_router(router, prefix=settings.api_prefix)
 app.include_router(auth_router, prefix=settings.api_prefix)
 app.include_router(admin_router, prefix=settings.api_prefix)
+app.include_router(users_router, prefix=settings.api_prefix)
 
 # Uploaded images are public. In production this can be replaced by OSS + CDN.
 Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)

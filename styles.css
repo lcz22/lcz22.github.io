@@ -4828,3 +4828,59 @@ body.is-ready .intro {
     height: 120px;
   }
 }
+
+.owner-avatar {
+  position: absolute;
+  z-index: 9;
+  right: 19px;
+  bottom: 17px;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid rgba(242, 238, 229, 0.82);
+  border-radius: 50%;
+  color: #fff;
+  background:
+    linear-gradient(135deg,
+      hsl(var(--avatar-hue, 220) 72% 58%),
+      hsl(calc(var(--avatar-hue, 220) + 44) 64% 36%));
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.62);
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+  transition: transform 0.3s var(--ease-spring), box-shadow 0.3s ease;
+}
+
+.owner-avatar::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.owner-avatar:hover {
+  transform: scale(1.08);
+  box-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.75);
+}
+
+.motion-toggle {
+  bottom: 79px;
+}
+
+@media (max-width: 760px) {
+  .owner-avatar {
+    width: 42px;
+    height: 42px;
+    font-size: 17px;
+    right: 16px;
+    bottom: 15px;
+  }
+
+  .motion-toggle {
+    bottom: 70px;
+  }
+}

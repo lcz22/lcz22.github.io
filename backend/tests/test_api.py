@@ -291,6 +291,29 @@ def test_heic_and_motion_upload(client: TestClient) -> None:
     assert response.status_code == 204
 
 
+def test_public_profile(client: TestClient) -> None:
+    user = register(client, "gina", "gina@example.com")
+    quest = create_quest(client, user["access_token"], title="主页里的支线")
+
+    public = client.get("/api/users/gina")
+    assert public.status_code == 200, public.text
+    payload = public.json()
+    assert payload["username"] == "gina"
+    assert payload["is_self"] is False
+    assert payload["email"] is None
+    assert payload["stats"]["total"] == 1
+    assert payload["stats"]["approved"] == 1
+    assert payload["quests"][0]["id"] == quest["id"]
+
+    own = client.get("/api/users/gina", headers=auth(user["access_token"]))
+    assert own.status_code == 200
+    assert own.json()["is_self"] is True
+    assert own.json()["email"] == "gina@example.com"
+
+    assert client.get("/api/users/not-a-user").status_code == 404
+    assert client.delete(f"/api/quests/{quest['id']}", headers=auth(user["access_token"])).status_code == 204
+
+
 @pytest.fixture(scope="module")
 def client():
     with TestClient(app) as test_client:

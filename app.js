@@ -391,6 +391,23 @@ function resolveApiBase() {
   return '';
 }
 
+function avatarHue(username) {
+  let hash = 0;
+  for (const character of String(username || '杭电')) {
+    hash = (hash * 31 + character.codePointAt(0)) % 360;
+  }
+  return hash;
+}
+
+function avatarInitial(username) {
+  const first = Array.from(String(username || '杭电').trim())[0] || '杭';
+  return first.toUpperCase();
+}
+
+function profileUrl(username) {
+  return `profile.html?u=${encodeURIComponent(username)}`;
+}
+
 function apiHeaders(extra = {}) {
   const headers = { ...extra };
   const token = readAuthToken();
@@ -482,6 +499,7 @@ function updateAuthUI() {
   dom.authMenuRole.textContent = user
     ? (user.role === 'admin' ? 'ADMIN / 管理员' : 'USER / 普通用户')
     : '';
+  dom.myProfileButton.hidden = !user;
   dom.adminPanelButton.hidden = !user || user.role !== 'admin';
 
   if (!user) closeAuthMenu();
@@ -644,6 +662,10 @@ function setupAuth() {
   $$('[data-close-auth]').forEach(element => element.addEventListener('click', () => closeAuth()));
   dom.authForm.addEventListener('submit', submitAuth);
   dom.logoutButton.addEventListener('click', logout);
+  dom.myProfileButton.addEventListener('click', () => {
+    if (!state.user) return;
+    window.location.href = profileUrl(state.user.username);
+  });
   dom.adminPanelButton.addEventListener('click', () => {
     closeAuthMenu();
     openAdmin();
@@ -978,6 +1000,8 @@ const dom = {
   detailVideo: $('#detailVideo'),
   motionToggle: $('#motionToggle'),
   motionToggleLabel: $('#motionToggleLabel'),
+  ownerAvatar: $('#ownerAvatar'),
+  ownerAvatarText: $('#ownerAvatarText'),
   detailReview: $('#detailReview'),
   reflectiveCard: $('#reflectiveCard'),
   detailStampDate: $('#detailStampDate'),
@@ -1050,6 +1074,7 @@ const dom = {
   authMenu: $('#authMenu'),
   authMenuName: $('#authMenuName'),
   authMenuRole: $('#authMenuRole'),
+  myProfileButton: $('#myProfileButton'),
   adminPanelButton: $('#adminPanelButton'),
   logoutButton: $('#logoutButton'),
   authLayer: $('#authLayer'),
@@ -2015,6 +2040,14 @@ function renderDetail(quest) {
   dom.detailFeeling.textContent = quest.feeling || '有些时刻来不及描述，只能先把它留下来。';
   dom.detailNote.textContent = CATEGORY_NOTES[quest.category] || CATEGORY_NOTES['校园'];
   dom.detailMine.hidden = !quest.isUser || (quest.fromApi && !quest.is_owner);
+  const ownerName = quest.fromApi && quest.isUser ? quest.owner_username : null;
+  dom.ownerAvatar.hidden = !ownerName;
+  if (ownerName) {
+    dom.ownerAvatarText.textContent = avatarInitial(ownerName);
+    dom.ownerAvatar.style.setProperty('--avatar-hue', String(avatarHue(ownerName)));
+    dom.ownerAvatar.setAttribute('aria-label', `查看 @${ownerName} 的主页`);
+    dom.ownerAvatar.title = `查看 @${ownerName} 的主页`;
+  }
   dom.holdDelete.removeAttribute('data-done');
   dom.holdDelete.removeAttribute('data-holding');
   dom.holdDelete.style.setProperty('--hold-p', '0');
@@ -2326,6 +2359,12 @@ function setupDetail() {
   dom.detailPrev.addEventListener('click', () => navigateDetail(-1));
   dom.detailNext.addEventListener('click', () => navigateDetail(1));
   dom.motionToggle.addEventListener('click', toggleDetailMotion);
+  dom.ownerAvatar.addEventListener('click', () => {
+    const quest = findQuest(state.activeId);
+    if (quest?.owner_username) {
+      window.location.href = profileUrl(quest.owner_username);
+    }
+  });
   dom.detailVideo.addEventListener('error', () => {
     if (!dom.detailVideo.hidden) {
       showToast('这个实况视频的编码暂时无法播放');
