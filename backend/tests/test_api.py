@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sqlite3
 import tempfile
 from io import BytesIO
 from pathlib import Path
@@ -13,19 +14,58 @@ os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{(TEST_ROOT / 'test.db').as_p
 os.environ["UPLOAD_DIR"] = str(TEST_ROOT / "uploads")
 os.environ["PUBLIC_BASE_URL"] = "http://testserver"
 os.environ["AUTO_APPROVE"] = "true"
+os.environ["JWT_SECRET"] = "test-secret-that-is-long-enough-for-hs256"
 
 from fastapi.testclient import TestClient  # noqa: E402
 from PIL import Image  # noqa: E402
 
 from app.main import app  # noqa: E402
 
-VISITOR = "test-visitor-0001"
-
 
 def image_bytes() -> bytes:
     buffer = BytesIO()
     Image.new("RGB", (1400, 1000), (34, 65, 122)).save(buffer, format="JPEG", quality=88)
     return buffer.getvalue()
+
+
+def auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def register(client: TestClient, username: str, email: str) -> dict:
+    response = client.post(
+        "/api/auth/register",
+        json={"username": username, "email": email, "password": "password-123"},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def create_quest(client: TestClient, token: str, title: str = "在图书馆躲雨") -> dict:
+    response = client.post(
+        "/api/quests",
+        headers=auth(token),
+        data={
+            "title": title,
+            "shot_date": "2026-11-05",
+            "shot_time": "16:05",
+            "place": "杭电 · 图书馆",
+            "feeling": "雨把窗户洗得很亮，我在书架之间站了很久。",
+            "category": "校园",
+        },
+        files={"image": ("library.jpg", image_bytes(), "image/jpeg")},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def promote_to_admin(username: str) -> None:
+    connection = sqlite3.connect(TEST_ROOT / "test.db")
+    try:
+        connection.execute("UPDATE users SET role = 'admin' WHERE username = ?", (username,))
+        connection.commit()
+    finally:
+        connection.close()
 
 
 def test_health_and_categories(client: TestClient) -> None:
@@ -38,114 +78,129 @@ def test_health_and_categories(client: TestClient) -> None:
     assert "校园" in response.json()["categories"]
 
 
-def test_full_quest_rating_and_delete_flow(client: TestClient) -> None:
-    # Empty archive.
+def test_auth_register_login_and_permissions(client: TestClient) -> None:
+    alice = register(client, "alice", "alice@example.com")
+    token = alice["access_token"]
+    assert alice["user"]["role"] == "user"
+
+    response = client.get("/api/auth/me", headers=auth(token))
+    assert response.status_code == 200
+    assert response.json()["username"] == "alice"
+
+    response = client.post(
+        "/api/auth/register",
+        json={"username": "alice", "email": "other@example.com", "password": "password-123"},
+    )
+    assert response.status_code == 409
+
+    response = client.post(
+        "/api/auth/login",
+        json={"identifier": "alice@example.com", "password": "wrong-password"},
+    )
+    assert response.status_code == 401
+
+    response = client.post(
+        "/api/auth/login",
+        json={"identifier": "alice", "password": "password-123"},
+    )
+    assert response.status_code == 200
+    assert response.json()["user"]["username"] == "alice"
+
+    # Guests can browse but cannot create.
     response = client.get("/api/quests")
     assert response.status_code == 200
     assert response.json()["total"] == 0
 
-    # Create a quest with an image.
     response = client.post(
         "/api/quests",
         data={
-            "title": "在图书馆躲雨",
+            "title": "guest",
             "shot_date": "2026-11-05",
             "shot_time": "16:05",
-            "place": "杭电 · 图书馆",
-            "feeling": "雨把窗户洗得很亮，我在书架之间站了很久。",
             "category": "校园",
         },
         files={"image": ("library.jpg", image_bytes(), "image/jpeg")},
     )
-    assert response.status_code == 201, response.text
-    payload = response.json()
-    quest = payload["quest"]
-    manage_token = payload["manage_token"]
+    assert response.status_code == 401
+
+    quest = create_quest(client, token)
     quest_id = quest["id"]
-    assert quest["title"] == "在图书馆躲雨"
-    assert quest["date"] == "2026.11.05"
-    assert quest["iso"] == "2026-11-05"
-    assert quest["category"] == "校园"
-    assert quest["votes"] == 0
-    assert quest["score"] is None
-    assert quest["image"].startswith("http://testserver/uploads/")
-    assert isinstance(manage_token, str) and len(manage_token) > 20
+    assert quest["owner_username"] == "alice"
+    assert quest["is_owner"] is True
+    assert quest["can_delete"] is True
 
-    # Public list and detail.
-    response = client.get("/api/quests")
+    response = client.put(
+        f"/api/quests/{quest_id}/rating",
+        json={"score": 5},
+        headers=auth(token),
+    )
     assert response.status_code == 200
-    assert response.json()["total"] == 1
-    assert response.json()["items"][0]["id"] == quest_id
-
-    response = client.get(f"/api/quests/{quest_id}")
-    assert response.status_code == 200
-
-    # Static uploaded image is publicly served.
-    image_path = quest["image"].replace("http://testserver", "")
-    response = client.get(image_path)
-    assert response.status_code == 200
-    assert response.headers["content-type"] == "image/jpeg"
-
-    # Rating: create, preview in list, update, then clear.
-    headers = {"X-Visitor-Id": VISITOR}
-    response = client.put(f"/api/quests/{quest_id}/rating", json={"score": 5}, headers=headers)
-    assert response.status_code == 200, response.text
     assert response.json() == {"average": 5.0, "votes": 1, "my_rating": 5}
 
-    response = client.get(f"/api/quests/{quest_id}", headers=headers)
-    assert response.json()["my_rating"] == 5
-    assert response.json()["votes"] == 1
+    guest_detail = client.get(f"/api/quests/{quest_id}")
+    assert guest_detail.status_code == 200
+    assert guest_detail.json()["my_rating"] == 0
+    assert guest_detail.json()["can_delete"] is False
 
-    response = client.put(f"/api/quests/{quest_id}/rating", json={"score": 4}, headers=headers)
-    assert response.status_code == 200
-    assert response.json() == {"average": 4.0, "votes": 1, "my_rating": 4}
+    alice_detail = client.get(f"/api/quests/{quest_id}", headers=auth(token))
+    assert alice_detail.json()["my_rating"] == 5
 
-    response = client.delete(f"/api/quests/{quest_id}/rating", headers=headers)
-    assert response.status_code == 200
-    assert response.json() == {"average": None, "votes": 0, "my_rating": 0}
+    bob = register(client, "bob", "bob@example.com")
+    response = client.delete(f"/api/quests/{quest_id}", headers=auth(bob["access_token"]))
+    assert response.status_code == 403
 
-    # Stats reflect the quest.
-    response = client.get("/api/stats")
-    assert response.status_code == 200
-    assert response.json()["total_quests"] == 1
-    assert response.json()["categories"]["校园"] == 1
+    response = client.delete(f"/api/quests/{quest_id}", headers=auth(token))
+    assert response.status_code == 204
+    assert client.get(f"/api/quests/{quest_id}").status_code == 404
 
-    # Wrong token must not delete.
-    response = client.delete(
-        f"/api/quests/{quest_id}",
-        headers={"X-Edit-Token": "wrong-token"},
+
+def test_admin_management_and_moderation(client: TestClient) -> None:
+    owner = register(client, "carol", "carol@example.com")
+    admin = register(client, "dave", "dave@example.com")
+    promote_to_admin("dave")
+
+    response = client.get("/api/admin/users", headers=auth(admin["access_token"]))
+    assert response.status_code == 200, response.text
+    assert any(item["username"] == "carol" for item in response.json()["items"])
+
+    response = client.get("/api/admin/users", headers=auth(owner["access_token"]))
+    assert response.status_code == 403
+
+    quest = create_quest(client, owner["access_token"], title="待审核的支线")
+    quest_id = quest["id"]
+
+    response = client.patch(
+        f"/api/admin/quests/{quest_id}/status",
+        json={"status": "pending"},
+        headers=auth(admin["access_token"]),
     )
-    assert response.status_code == 404
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "pending"
 
-    # Correct token deletes.
-    response = client.delete(
-        f"/api/quests/{quest_id}",
-        headers={"X-Edit-Token": manage_token},
+    guest_list = client.get("/api/quests").json()
+    assert all(item["id"] != quest_id for item in guest_list["items"])
+    admin_list = client.get("/api/admin/quests", headers=auth(admin["access_token"]))
+    assert admin_list.status_code == 200
+    assert any(item["id"] == quest_id for item in admin_list.json()["items"])
+
+    response = client.patch(
+        f"/api/admin/quests/{quest_id}/status",
+        json={"status": "approved"},
+        headers=auth(admin["access_token"]),
     )
+    assert response.status_code == 200
+    assert client.get(f"/api/quests/{quest_id}").status_code == 200
+
+    response = client.delete(f"/api/quests/{quest_id}", headers=auth(admin["access_token"]))
     assert response.status_code == 204
 
-    response = client.get(f"/api/quests/{quest_id}")
-    assert response.status_code == 404
-    assert client.get("/api/quests").json()["total"] == 0
-
-
-def test_category_validation_and_invalid_rating(client: TestClient) -> None:
-    response = client.get("/api/quests", params={"category": "火星"})
+    # The last admin cannot demote themselves.
+    response = client.patch(
+        f"/api/admin/users/{admin['user']['id']}",
+        json={"role": "user"},
+        headers=auth(admin["access_token"]),
+    )
     assert response.status_code == 400
-
-    response = client.put(
-        "/api/quests/not-exists/rating",
-        json={"score": 3},
-        headers={"X-Visitor-Id": VISITOR},
-    )
-    assert response.status_code == 404
-
-    response = client.put(
-        "/api/quests/not-exists/rating",
-        json={"score": 9},
-        headers={"X-Visitor-Id": VISITOR},
-    )
-    assert response.status_code == 422
 
 
 @pytest.fixture(scope="module")

@@ -1,8 +1,8 @@
 """Database-facing contracts.
 
-The API layer only depends on ``QuestRepository``.  Today the concrete
-implementation is SQLAlchemy (SQLite locally, PostgreSQL in production), but a
-different database can be supplied later by implementing this interface.
+The API layer only depends on these interfaces.  Today the concrete
+implementations are SQLAlchemy (SQLite locally, PostgreSQL / MySQL in
+production), but another database can be supplied later by implementing them.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ class NewQuest:
     category: str
     image_url: str
     image_filename: str
+    owner_id: str | None = None
     status: str = "approved"
     is_seed: bool = False
     seed_rating_sum: float = 0.0
@@ -49,6 +50,8 @@ class QuestRecord:
     rating_count: int
     my_rating: int
     created_at: datetime
+    owner_id: str | None
+    owner_username: str | None
 
     @property
     def total_rating_sum(self) -> float:
@@ -81,7 +84,7 @@ class StatsRecord:
 
 
 class QuestRepository(ABC):
-    """All persistence operations used by the HTTP API."""
+    """All persistence operations used by the quest / rating API."""
 
     @abstractmethod
     async def list_quests(
@@ -90,28 +93,48 @@ class QuestRepository(ABC):
         category: str | None,
         limit: int,
         offset: int,
-        visitor_id: str | None,
+        viewer_id: str | None,
     ) -> tuple[list[QuestRecord], int]:
         raise NotImplementedError
 
     @abstractmethod
-    async def get_quest(self, quest_id: str, *, visitor_id: str | None = None) -> QuestRecord | None:
+    async def list_all_quests(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        admin_id: str,
+    ) -> tuple[list[QuestRecord], int]:
         raise NotImplementedError
 
     @abstractmethod
-    async def create_quest(self, data: NewQuest, *, edit_token_hash: str) -> QuestRecord:
+    async def get_quest(
+        self,
+        quest_id: str,
+        *,
+        viewer_id: str | None = None,
+        include_unapproved: bool = False,
+    ) -> QuestRecord | None:
         raise NotImplementedError
 
     @abstractmethod
-    async def delete_quest(self, quest_id: str, *, edit_token_hash: str) -> QuestRecord | None:
+    async def create_quest(self, data: NewQuest) -> QuestRecord:
         raise NotImplementedError
 
     @abstractmethod
-    async def upsert_rating(self, quest_id: str, visitor_id: str, score: int) -> RatingSummary | None:
+    async def delete_quest(self, quest_id: str) -> QuestRecord | None:
         raise NotImplementedError
 
     @abstractmethod
-    async def delete_rating(self, quest_id: str, visitor_id: str) -> RatingSummary | None:
+    async def set_status(self, quest_id: str, status: str) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def upsert_rating(self, quest_id: str, user_id: str, score: int) -> RatingSummary | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def delete_rating(self, quest_id: str, user_id: str) -> RatingSummary | None:
         raise NotImplementedError
 
     @abstractmethod

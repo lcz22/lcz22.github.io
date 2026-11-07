@@ -1,14 +1,13 @@
-"""SQLAlchemy implementation of the persistence contract."""
+"""SQLAlchemy implementation of the quest / rating persistence contract."""
 
 from __future__ import annotations
 
-import hmac
 from datetime import timezone
 
 from sqlalchemy import func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Quest, Rating
+from ..models import Quest, Rating, User
 from .base import NewQuest, QuestRecord, QuestRepository, RatingSummary, StatsRecord
 
 
@@ -22,6 +21,7 @@ def _ensure_utc(value):
 
 def _as_record(
     quest: Quest,
+    owner_username: str | None,
     rating_sum: int | float | None,
     rating_count: int | None,
     my_rating: int | None,
@@ -45,6 +45,8 @@ def _as_record(
         rating_count=int(rating_count or 0),
         my_rating=int(my_rating or 0),
         created_at=_ensure_utc(quest.created_at),
+        owner_id=quest.owner_id,
+        owner_username=owner_username,
     )
 
 
@@ -64,31 +66,32 @@ class SqlAlchemyQuestRepository(QuestRepository):
             .subquery()
         )
 
-    def _statement(self, *, category: str | None, visitor_id: str | None):
+    def _statement(self, *, public_only: bool, viewer_id: str | None):
         stats = self._rating_stats_subquery()
-        selected = [
-            Quest,
-            func.coalesce(stats.c.rating_sum, 0).label("rating_sum"),
-            func.coalesce(stats.c.rating_count, 0).label("rating_count"),
-        ]
-        joins = [stats]
-        statement = select(*selected).outerjoin(stats, stats.c.quest_id == Quest.id)
+        statement = (
+            select(
+                Quest,
+                User.username,
+                func.coalesce(stats.c.rating_sum, 0).label("rating_sum"),
+                func.coalesce(stats.c.rating_count, 0).label("rating_count"),
+            )
+            .outerjoin(User, User.id == Quest.owner_id)
+            .outerjoin(stats, stats.c.quest_id == Quest.id)
+        )
 
-        if visitor_id:
+        if viewer_id:
             my = (
                 select(Rating.quest_id.label("quest_id"), Rating.score.label("score"))
-                .where(Rating.visitor_id == visitor_id)
+                .where(Rating.user_id == viewer_id)
                 .subquery()
             )
-            joins.append(my)
             statement = statement.add_columns(func.coalesce(my.c.score, 0).label("my_rating"))
             statement = statement.outerjoin(my, my.c.quest_id == Quest.id)
         else:
             statement = statement.add_columns(literal(0).label("my_rating"))
 
-        statement = statement.where(Quest.status == "approved")
-        if category:
-            statement = statement.where(Quest.category == category)
+        if public_only:
+            statement = statement.where(Quest.status == "approved")
         return statement
 
     async def list_quests(
@@ -97,34 +100,67 @@ class SqlAlchemyQuestRepository(QuestRepository):
         category: str | None,
         limit: int,
         offset: int,
-        visitor_id: str | None,
+        viewer_id: str | None,
     ) -> tuple[list[QuestRecord], int]:
         count_stmt = select(func.count(Quest.id)).where(Quest.status == "approved")
         if category:
             count_stmt = count_stmt.where(Quest.category == category)
         total = int((await self.session.execute(count_stmt)).scalar_one())
 
+        stmt = self._statement(public_only=True, viewer_id=viewer_id)
+        if category:
+            stmt = stmt.where(Quest.category == category)
         stmt = (
-            self._statement(category=category, visitor_id=visitor_id)
-            .order_by(Quest.shot_date.desc(), Quest.shot_time.desc(), Quest.created_at.desc())
+            stmt.order_by(Quest.shot_date.desc(), Quest.shot_time.desc(), Quest.created_at.desc())
             .limit(limit)
             .offset(offset)
         )
         rows = (await self.session.execute(stmt)).all()
         return [
-            _as_record(row[0], row[1], row[2], row[3])
+            _as_record(row[0], row[1], row[2], row[3], row[4])
             for row in rows
         ], total
 
-    async def get_quest(self, quest_id: str, *, visitor_id: str | None = None) -> QuestRecord | None:
-        stmt = self._statement(category=None, visitor_id=visitor_id).where(Quest.id == quest_id)
+    async def list_all_quests(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        admin_id: str,
+    ) -> tuple[list[QuestRecord], int]:
+        total = int(
+            (await self.session.execute(select(func.count(Quest.id)))).scalar_one()
+        )
+        stmt = (
+            self._statement(public_only=False, viewer_id=admin_id)
+            .order_by(Quest.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [
+            _as_record(row[0], row[1], row[2], row[3], row[4])
+            for row in rows
+        ], total
+
+    async def get_quest(
+        self,
+        quest_id: str,
+        *,
+        viewer_id: str | None = None,
+        include_unapproved: bool = False,
+    ) -> QuestRecord | None:
+        stmt = self._statement(public_only=not include_unapproved, viewer_id=viewer_id).where(
+            Quest.id == quest_id
+        )
         row = (await self.session.execute(stmt)).first()
         if row is None:
             return None
-        return _as_record(row[0], row[1], row[2], row[3])
+        return _as_record(row[0], row[1], row[2], row[3], row[4])
 
-    async def create_quest(self, data: NewQuest, *, edit_token_hash: str) -> QuestRecord:
+    async def create_quest(self, data: NewQuest) -> QuestRecord:
         quest = Quest(
+            owner_id=data.owner_id,
             title=data.title,
             shot_date=data.shot_date,
             shot_time=data.shot_time,
@@ -138,23 +174,28 @@ class SqlAlchemyQuestRepository(QuestRepository):
             is_seed=data.is_seed,
             seed_rating_sum=data.seed_rating_sum,
             seed_rating_count=data.seed_rating_count,
-            edit_token_hash=edit_token_hash,
         )
         self.session.add(quest)
         await self.session.commit()
         await self.session.refresh(quest)
-        return _as_record(quest, 0, 0, 0)
+        return _as_record(quest, None, 0, 0, 0)
 
-    async def delete_quest(self, quest_id: str, *, edit_token_hash: str) -> QuestRecord | None:
+    async def delete_quest(self, quest_id: str) -> QuestRecord | None:
         quest = await self.session.get(Quest, quest_id)
-        if quest is None or not quest.edit_token_hash:
+        if quest is None:
             return None
-        if not hmac.compare_digest(quest.edit_token_hash, edit_token_hash):
-            return None
-        record = _as_record(quest, 0, 0, 0)
+        record = _as_record(quest, None, 0, 0, 0)
         await self.session.delete(quest)
         await self.session.commit()
         return record
+
+    async def set_status(self, quest_id: str, status: str) -> bool:
+        quest = await self.session.get(Quest, quest_id)
+        if quest is None:
+            return False
+        quest.status = status
+        await self.session.commit()
+        return True
 
     async def _summary(self, quest: Quest, my_rating: int) -> RatingSummary:
         result = await self.session.execute(
@@ -172,7 +213,7 @@ class SqlAlchemyQuestRepository(QuestRepository):
             my_rating=my_rating,
         )
 
-    async def upsert_rating(self, quest_id: str, visitor_id: str, score: int) -> RatingSummary | None:
+    async def upsert_rating(self, quest_id: str, user_id: str, score: int) -> RatingSummary | None:
         quest = await self.session.get(Quest, quest_id)
         if quest is None or quest.status != "approved":
             return None
@@ -181,20 +222,20 @@ class SqlAlchemyQuestRepository(QuestRepository):
             await self.session.execute(
                 select(Rating).where(
                     Rating.quest_id == quest_id,
-                    Rating.visitor_id == visitor_id,
+                    Rating.user_id == user_id,
                 )
             )
         ).scalar_one_or_none()
 
         if existing is None:
-            self.session.add(Rating(quest_id=quest_id, visitor_id=visitor_id, score=score))
+            self.session.add(Rating(quest_id=quest_id, user_id=user_id, score=score))
         else:
             existing.score = score
 
         await self.session.commit()
         return await self._summary(quest, score)
 
-    async def delete_rating(self, quest_id: str, visitor_id: str) -> RatingSummary | None:
+    async def delete_rating(self, quest_id: str, user_id: str) -> RatingSummary | None:
         quest = await self.session.get(Quest, quest_id)
         if quest is None or quest.status != "approved":
             return None
@@ -203,7 +244,7 @@ class SqlAlchemyQuestRepository(QuestRepository):
             await self.session.execute(
                 select(Rating).where(
                     Rating.quest_id == quest_id,
-                    Rating.visitor_id == visitor_id,
+                    Rating.user_id == user_id,
                 )
             )
         ).scalar_one_or_none()

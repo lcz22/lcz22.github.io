@@ -39,6 +39,20 @@
         <a href="#index">支线索引</a>
         <a href="#manifesto">关于这里</a>
       </nav>
+      <div class="auth-slot" id="authSlot">
+        <button class="auth-button" id="authButton" type="button" aria-haspopup="menu" aria-expanded="false" hidden>
+          <span class="auth-button__avatar" id="authAvatar" aria-hidden="true">登</span>
+          <span class="auth-button__label" id="authLabel">登录 / 注册</span>
+        </button>
+        <div class="auth-menu" id="authMenu" role="menu" hidden>
+          <div class="auth-menu__head">
+            <strong id="authMenuName"></strong>
+            <span id="authMenuRole"></span>
+          </div>
+          <button class="auth-menu__item" id="adminPanelButton" type="button" role="menuitem" hidden>管理后台 <span>↗</span></button>
+          <button class="auth-menu__item" id="logoutButton" type="button" role="menuitem">退出登录 <span>↗</span></button>
+        </div>
+      </div>
       <button class="btn-ghost js-open-upload" type="button">
         <span class="btn-ghost__plus" aria-hidden="true">+</span>
         分享杭电日常
@@ -269,7 +283,7 @@
           <button class="footer__link js-open-upload" type="button">分享一条日常</button>
         </div>
 
-        <p class="footer__fine">照片与文字仅作杭电学生日常分享 · 评分保存在本地浏览器<br>© 2026 HDU SIDE QUEST ARCHIVE</p>
+        <p class="footer__fine">照片与文字仅作杭电学生日常分享 · 浏览无需登录，登录后可参与共享投稿与评分<br>© 2026 HDU SIDE QUEST ARCHIVE</p>
       </div>
     </div>
   </footer>
@@ -496,6 +510,72 @@
           </div>
         </div>
       </form>
+    </section>
+  </div>
+
+  <div class="auth-layer" id="authLayer" aria-hidden="true">
+    <div class="auth-scrim" data-close-auth></div>
+    <section class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <header class="auth-head">
+        <div>
+          <p class="auth-kicker">HDU ACCOUNT / 学生账号</p>
+          <h2 id="authTitle">登录杭电支线</h2>
+        </div>
+        <button class="auth-close" id="authClose" type="button" aria-label="关闭登录窗口">
+          <span aria-hidden="true">×</span>
+        </button>
+      </header>
+
+      <div class="auth-tabs" role="tablist" aria-label="登录或注册">
+        <button class="auth-tab is-active" id="authTabLogin" type="button" data-auth-mode="login" role="tab" aria-selected="true">登录</button>
+        <button class="auth-tab" id="authTabRegister" type="button" data-auth-mode="register" role="tab" aria-selected="false">注册</button>
+      </div>
+
+      <form class="auth-form" id="authForm" novalidate>
+        <label class="field" id="authIdentifierField">
+          <span class="field__label" id="authIdentifierLabel">用户名 / 邮箱</span>
+          <input id="authIdentifier" type="text" autocomplete="username" placeholder="输入用户名或邮箱" maxlength="254">
+        </label>
+
+        <label class="field" id="authEmailField" hidden>
+          <span class="field__label">邮箱</span>
+          <input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com" maxlength="254">
+        </label>
+
+        <label class="field">
+          <span class="field__label">密码</span>
+          <input id="authPassword" type="password" autocomplete="current-password" placeholder="至少 8 位" maxlength="128">
+        </label>
+
+        <p class="auth-error" id="authError" role="alert" hidden></p>
+
+        <button class="auth-submit" id="authSubmit" type="submit">
+          <span id="authSubmitLabel">登录</span>
+          <span aria-hidden="true">↗</span>
+        </button>
+
+        <p class="auth-note">游客可以浏览全部杭电日常；登录后可以评分、投稿，并删除自己上传的支线。</p>
+      </form>
+    </section>
+  </div>
+
+  <div class="admin-layer" id="adminLayer" aria-hidden="true">
+    <div class="admin-scrim" data-close-admin></div>
+    <section class="admin-panel" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
+      <header class="admin-head">
+        <div>
+          <p class="auth-kicker">ADMIN CONSOLE / 权限管理</p>
+          <h2 id="adminTitle">管理后台</h2>
+        </div>
+        <button class="auth-close" id="adminClose" type="button" aria-label="关闭管理后台">
+          <span aria-hidden="true">×</span>
+        </button>
+      </header>
+      <div class="admin-tabs" role="tablist" aria-label="管理内容">
+        <button class="admin-tab is-active" type="button" data-admin-tab="users">用户</button>
+        <button class="admin-tab" type="button" data-admin-tab="quests">投稿</button>
+      </div>
+      <div class="admin-body" id="adminBody"></div>
     </section>
   </div>
 

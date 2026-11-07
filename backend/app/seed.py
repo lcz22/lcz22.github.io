@@ -51,7 +51,6 @@ async def seed() -> None:
                 is_seed=True,
                 seed_rating_sum=float(item["baseScore"]) * int(item["baseVotes"]),
                 seed_rating_count=int(item["baseVotes"]),
-                edit_token_hash=None,
             )
             session.add(quest)
             inserted += 1

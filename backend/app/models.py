@@ -1,7 +1,8 @@
 """SQLAlchemy models.
 
 These models are intentionally written against portable SQLAlchemy types so the
-same code works with SQLite for local development and PostgreSQL in production.
+same code works with SQLite for local development and PostgreSQL / MySQL in
+production.
 """
 
 from __future__ import annotations
@@ -32,10 +33,33 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    username: Mapped[str] = mapped_column(String(32), nullable=False, unique=True, index=True)
+    email: Mapped[str] = mapped_column(String(254), nullable=False, unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(16), nullable=False, default="user", index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utcnow
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    quests: Mapped[list["Quest"]] = relationship(back_populates="owner")
+    ratings: Mapped[list["Rating"]] = relationship(back_populates="user")
+
+
 class Quest(Base):
     __tablename__ = "quests"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    owner_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     title: Mapped[str] = mapped_column(String(80), nullable=False)
     shot_date: Mapped[date] = mapped_column(Date, nullable=False)
     shot_time: Mapped[time] = mapped_column(Time, nullable=False)
@@ -49,7 +73,6 @@ class Quest(Base):
     is_seed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     seed_rating_sum: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     seed_rating_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    edit_token_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utcnow, index=True
     )
@@ -57,6 +80,7 @@ class Quest(Base):
         DateTime(timezone=True), nullable=False, default=utcnow, onupdate=utcnow
     )
 
+    owner: Mapped[User | None] = relationship(back_populates="quests")
     ratings: Mapped[list["Rating"]] = relationship(
         back_populates="quest",
         cascade="all, delete-orphan",
@@ -67,17 +91,19 @@ class Quest(Base):
 class Rating(Base):
     __tablename__ = "ratings"
     __table_args__ = (
-        UniqueConstraint("quest_id", "visitor_id", name="uq_rating_quest_visitor"),
+        UniqueConstraint("quest_id", "user_id", name="uq_rating_quest_user"),
         CheckConstraint("score >= 1 AND score <= 5", name="ck_rating_score_range"),
         Index("ix_ratings_quest_id", "quest_id"),
-        Index("ix_ratings_visitor_id", "visitor_id"),
+        Index("ix_ratings_user_id", "user_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     quest_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("quests.id", ondelete="CASCADE"), nullable=False
     )
-    visitor_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     score: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utcnow
@@ -87,3 +113,4 @@ class Rating(Base):
     )
 
     quest: Mapped[Quest] = relationship(back_populates="ratings")
+    user: Mapped[User] = relationship(back_populates="ratings")

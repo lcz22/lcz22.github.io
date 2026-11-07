@@ -249,9 +249,8 @@ const LS_KEYS = {
   ratings: 'hdu-sidequests.ratings.v1',
   hidden: 'hdu-sidequests.hidden.v1',
   fallbackUploads: 'hdu-sidequests.uploads.fallback.v1',
-  manageTokens: 'hdu-sidequests.manage-tokens.v1',
-  visitor: 'hdu-sidequests.visitor.v1',
-  apiBase: 'hdu-sidequests.api-base.v1'
+  apiBase: 'hdu-sidequests.api-base.v1',
+  authToken: 'hdu-sidequests.auth-token.v1'
 };
 const DB_NAME = 'hdu-sidequests-archive';
 const DB_STORE = 'photos';
@@ -269,8 +268,16 @@ const state = {
   serverQuests: [],
   serverMode: false,
   apiBase: resolveApiBase(),
-  visitorId: getVisitorId(),
   apiPendingRatings: new Set(),
+  authAvailable: false,
+  user: null,
+  authIntent: '',
+  authBusy: false,
+  adminTab: 'users',
+  adminUsers: [],
+  adminQuests: [],
+  adminTotalUsers: 0,
+  adminTotalQuests: 0,
   filter: 'all',
   activeId: null,
   db: null,
@@ -304,6 +311,40 @@ function writeJSON(key, value) {
   } catch (error) {
     console.warn('Local storage is unavailable:', error);
   }
+}
+
+function readAuthToken() {
+  try {
+    return localStorage.getItem(LS_KEYS.authToken) || '';
+  } catch (error) {
+    return '';
+  }
+}
+
+function storeAuthToken(token) {
+  try {
+    localStorage.setItem(LS_KEYS.authToken, token);
+  } catch (error) {
+    console.warn('Could not persist auth token:', error);
+  }
+}
+
+function clearAuthToken() {
+  try {
+    localStorage.removeItem(LS_KEYS.authToken);
+  } catch (error) {
+    /* ignore */
+  }
+}
+
+function escapeHTML(value) {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[character]);
 }
 
 function clamp(value, min, max) {
@@ -347,26 +388,11 @@ function resolveApiBase() {
   return '';
 }
 
-function getVisitorId() {
-  try {
-    let visitorId = localStorage.getItem(LS_KEYS.visitor);
-    if (!visitorId) {
-      visitorId = window.crypto?.randomUUID
-        ? window.crypto.randomUUID()
-        : `visitor_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
-      localStorage.setItem(LS_KEYS.visitor, visitorId);
-    }
-    return visitorId;
-  } catch (error) {
-    return `visitor_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
-  }
-}
-
 function apiHeaders(extra = {}) {
-  return {
-    'X-Visitor-Id': state.visitorId,
-    ...extra
-  };
+  const headers = { ...extra };
+  const token = readAuthToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
 }
 
 async function apiRequest(path, options = {}) {
@@ -379,6 +405,11 @@ async function apiRequest(path, options = {}) {
       headers: apiHeaders(options.headers || {}),
       signal: controller.signal
     });
+    if (response.status === 401 && readAuthToken() && !path.startsWith('/auth/')) {
+      clearAuthToken();
+      state.user = null;
+      updateAuthUI();
+    }
     if (!response.ok) {
       let detail = `请求失败（${response.status}）`;
       try {
@@ -413,6 +444,380 @@ async function connectApiWithRetry() {
   if (await connectApi()) return true;
   await new Promise(resolve => window.setTimeout(resolve, 900));
   return connectApi();
+}
+
+async function restoreSession() {
+  if (!readAuthToken()) {
+    state.user = null;
+    updateAuthUI();
+    return;
+  }
+  try {
+    const response = await apiRequest('/auth/me');
+    state.user = await response.json();
+  } catch (error) {
+    clearAuthToken();
+    state.user = null;
+  }
+  updateAuthUI();
+}
+
+function updateAuthUI() {
+  if (!dom.authButton) return;
+  dom.authButton.hidden = !state.authAvailable;
+  if (!state.authAvailable) {
+    closeAuthMenu();
+    return;
+  }
+
+  const user = state.user;
+  dom.authButton.classList.toggle('is-user', Boolean(user));
+  dom.authAvatar.textContent = user ? (user.username || '?').slice(0, 1) : '登';
+  dom.authLabel.textContent = user ? user.username : '登录 / 注册';
+  dom.authMenuName.textContent = user ? user.username : '';
+  dom.authMenuRole.textContent = user
+    ? (user.role === 'admin' ? 'ADMIN / 管理员' : 'USER / 普通用户')
+    : '';
+  dom.adminPanelButton.hidden = !user || user.role !== 'admin';
+
+  if (!user) closeAuthMenu();
+}
+
+function closeAuthMenu() {
+  if (!dom.authMenu) return;
+  dom.authMenu.hidden = true;
+  dom.authButton.setAttribute('aria-expanded', 'false');
+}
+
+function toggleAuthMenu() {
+  if (!state.user) {
+    openAuth();
+    return;
+  }
+  const willOpen = dom.authMenu.hidden;
+  dom.authMenu.hidden = !willOpen;
+  dom.authButton.setAttribute('aria-expanded', String(willOpen));
+}
+
+function openAuth(intent = '') {
+  if (!state.authAvailable) {
+    showToast('登录服务还没有连接，请先启动 FastAPI');
+    return;
+  }
+  closeAuthMenu();
+  state.authIntent = intent;
+  setAuthMode('login');
+  dom.authForm.reset();
+  dom.authError.hidden = true;
+  authOpen = true;
+  state.lastFocus = document.activeElement;
+  dom.authLayer.classList.add('is-open');
+  dom.authLayer.setAttribute('aria-hidden', 'false');
+  dom.body.classList.add('is-locked');
+  window.setTimeout(() => dom.authIdentifier.focus({ preventScroll: true }), 180);
+}
+
+function closeAuth(skipFocus = false) {
+  if (!authOpen) return;
+  authOpen = false;
+  state.authIntent = '';
+  dom.authLayer.classList.remove('is-open');
+  dom.authLayer.setAttribute('aria-hidden', 'true');
+  if (!uploadOpen && !detailOpen && !adminOpen) dom.body.classList.remove('is-locked');
+  if (!skipFocus && state.lastFocus && document.contains(state.lastFocus)) {
+    state.lastFocus.focus({ preventScroll: true });
+  }
+}
+
+function setAuthMode(mode) {
+  const registering = mode === 'register';
+  dom.authTabs.forEach(tab => {
+    const active = tab.dataset.authMode === mode;
+    tab.classList.toggle('is-active', active);
+    tab.setAttribute('aria-selected', String(active));
+  });
+  dom.authTitle.textContent = registering ? '加入杭电支线' : '登录杭电支线';
+  dom.authIdentifierLabel.textContent = registering ? '用户名' : '用户名 / 邮箱';
+  dom.authIdentifier.placeholder = registering ? '2–32 位，支持中文' : '输入用户名或邮箱';
+  dom.authIdentifier.autocomplete = 'username';
+  dom.authEmailField.hidden = !registering;
+  dom.authEmail.required = registering;
+  dom.authPassword.autocomplete = registering ? 'new-password' : 'current-password';
+  dom.authPassword.placeholder = registering ? '至少 8 位' : '输入密码';
+  dom.authSubmitLabel.textContent = registering ? '创建账号' : '登录';
+  dom.authError.hidden = true;
+}
+
+async function submitAuth(event) {
+  event.preventDefault();
+  if (state.authBusy) return;
+
+  const mode = dom.authTabRegister.classList.contains('is-active') ? 'register' : 'login';
+  const identifier = dom.authIdentifier.value.trim();
+  const email = dom.authEmail.value.trim();
+  const password = dom.authPassword.value;
+  const fail = message => {
+    dom.authError.textContent = message;
+    dom.authError.hidden = false;
+  };
+
+  if (mode === 'register') {
+    if (identifier.length < 2) return fail('用户名至少需要 2 个字符');
+    if (!email.includes('@')) return fail('请填写有效邮箱');
+    if (password.length < 8) return fail('密码至少需要 8 位');
+  } else {
+    if (!identifier) return fail('请输入用户名或邮箱');
+    if (!password) return fail('请输入密码');
+  }
+
+  state.authBusy = true;
+  dom.authSubmit.disabled = true;
+  dom.authSubmitLabel.textContent = mode === 'register' ? '正在创建…' : '正在登录…';
+  dom.authError.hidden = true;
+
+  try {
+    const response = await apiRequest(mode === 'register' ? '/auth/register' : '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mode === 'register'
+        ? { username: identifier, email, password }
+        : { identifier, password })
+    });
+    const payload = await response.json();
+    storeAuthToken(payload.access_token);
+    state.user = payload.user;
+    state.authAvailable = true;
+    updateAuthUI();
+
+    const intent = state.authIntent;
+    try {
+      await loadServerQuests();
+      renderArchive();
+      if (detailOpen && state.activeId) {
+        const active = findQuest(state.activeId);
+        if (active) renderDetail(active);
+      }
+    } catch (refreshError) {
+      console.warn('Logged in, but archive refresh failed:', refreshError);
+    }
+    closeAuth(true);
+    showToast(mode === 'register' ? '账号已创建，欢迎加入杭电支线' : `欢迎回来，${payload.user.username}`);
+    if (intent === 'upload') window.setTimeout(openUpload, 200);
+    if (intent === 'admin') window.setTimeout(openAdmin, 200);
+  } catch (error) {
+    fail(error.message || '登录失败，请稍后再试');
+  } finally {
+    state.authBusy = false;
+    dom.authSubmit.disabled = false;
+    dom.authSubmitLabel.textContent = mode === 'register' ? '创建账号' : '登录';
+  }
+}
+
+async function logout() {
+  clearAuthToken();
+  state.user = null;
+  updateAuthUI();
+  closeAuthMenu();
+  try {
+    await loadServerQuests();
+  } catch (error) {
+    console.warn('Could not refresh after logout:', error);
+  }
+  if (detailOpen) closeDetail(true);
+  renderArchive();
+  showToast('已退出登录');
+}
+
+function setupAuth() {
+  if (!dom.authButton) return;
+  dom.authButton.addEventListener('click', event => {
+    event.stopPropagation();
+    if (state.user) toggleAuthMenu();
+    else openAuth();
+  });
+  dom.authTabs.forEach(tab => tab.addEventListener('click', () => setAuthMode(tab.dataset.authMode)));
+  dom.authClose.addEventListener('click', () => closeAuth());
+  $$('[data-close-auth]').forEach(element => element.addEventListener('click', () => closeAuth()));
+  dom.authForm.addEventListener('submit', submitAuth);
+  dom.logoutButton.addEventListener('click', logout);
+  dom.adminPanelButton.addEventListener('click', () => {
+    closeAuthMenu();
+    openAdmin();
+  });
+  document.addEventListener('click', event => {
+    if (dom.authMenu.hidden) return;
+    if (!dom.authSlot.contains(event.target)) closeAuthMenu();
+  });
+}
+
+async function openAdmin() {
+  if (!state.user || state.user.role !== 'admin') {
+    showToast('需要管理员权限');
+    return;
+  }
+  if (detailOpen) closeDetail(true);
+  if (uploadOpen) closeUpload(true);
+  closeAuthMenu();
+  adminOpen = true;
+  state.lastFocus = document.activeElement;
+  state.adminTab = 'users';
+  updateAdminTabs();
+  dom.adminBody.innerHTML = '<div class="admin-loading">正在读取用户与投稿…</div>';
+  dom.adminLayer.classList.add('is-open');
+  dom.adminLayer.setAttribute('aria-hidden', 'false');
+  dom.body.classList.add('is-locked');
+  await loadAdminData();
+  window.setTimeout(() => dom.adminClose.focus({ preventScroll: true }), 180);
+}
+
+function closeAdmin(skipFocus = false) {
+  if (!adminOpen) return;
+  adminOpen = false;
+  dom.adminLayer.classList.remove('is-open');
+  dom.adminLayer.setAttribute('aria-hidden', 'true');
+  if (!uploadOpen && !detailOpen && !authOpen) dom.body.classList.remove('is-locked');
+  if (!skipFocus && state.lastFocus && document.contains(state.lastFocus)) {
+    state.lastFocus.focus({ preventScroll: true });
+  }
+}
+
+function updateAdminTabs() {
+  dom.adminTabs.forEach(tab => {
+    const active = tab.dataset.adminTab === state.adminTab;
+    tab.classList.toggle('is-active', active);
+    tab.setAttribute('aria-selected', String(active));
+  });
+}
+
+async function loadAdminData() {
+  try {
+    const [usersResponse, questsResponse] = await Promise.all([
+      apiRequest('/admin/users?limit=200'),
+      apiRequest('/admin/quests?limit=200')
+    ]);
+    const users = await usersResponse.json();
+    const quests = await questsResponse.json();
+    state.adminUsers = users.items;
+    state.adminTotalUsers = users.total;
+    state.adminQuests = quests.items;
+    state.adminTotalQuests = quests.total;
+    renderAdmin();
+  } catch (error) {
+    dom.adminBody.innerHTML = `<p class="admin-error">${escapeHTML(error.message || '读取管理数据失败')}</p>`;
+  }
+}
+
+function renderAdmin() {
+  if (state.adminTab === 'users') {
+    const rows = state.adminUsers.map(user => {
+      const isSelf = state.user && user.id === state.user.id;
+      const roleBadge = user.role === 'admin'
+        ? '<span class="admin-badge admin-badge--admin">ADMIN</span>'
+        : '<span class="admin-badge">USER</span>';
+      const activeBadge = user.is_active
+        ? ''
+        : '<span class="admin-badge admin-badge--off">已停用</span>';
+      const actions = isSelf
+        ? '<span class="admin-badge">当前账号</span>'
+        : `<button class="admin-action" type="button" data-admin-action="role" data-user-id="${escapeHTML(user.id)}" data-role="${user.role === 'admin' ? 'user' : 'admin'}">${user.role === 'admin' ? '降为用户' : '设为管理员'}</button>
+           <button class="admin-action ${user.is_active ? 'admin-action--danger' : ''}" type="button" data-admin-action="active" data-user-id="${escapeHTML(user.id)}" data-active="${user.is_active ? 'false' : 'true'}">${user.is_active ? '停用' : '启用'}</button>`;
+      return `<div class="admin-row">
+        <div class="admin-row__main">
+          <div class="admin-row__title">${escapeHTML(user.username)} ${roleBadge} ${activeBadge}</div>
+          <div class="admin-row__sub">${escapeHTML(user.email)} · 注册于 ${escapeHTML(new Date(user.created_at).toLocaleDateString('zh-CN'))}</div>
+        </div>
+        <div class="admin-actions">${actions}</div>
+      </div>`;
+    }).join('');
+
+    dom.adminBody.innerHTML = `
+      <div class="admin-section-head">
+        <h3>用户与角色</h3>
+        <span>${state.adminTotalUsers} 个账号</span>
+      </div>
+      <div class="admin-list">${rows || '<div class="admin-empty">还没有用户</div>'}</div>`;
+    return;
+  }
+
+  const rows = state.adminQuests.map(quest => {
+    const statusBadge = quest.status === 'approved'
+      ? '<span class="admin-badge">已公开</span>'
+      : '<span class="admin-badge admin-badge--pending">待审核</span>';
+    const owner = quest.owner_username ? `@${quest.owner_username}` : '预设内容';
+    return `<div class="admin-row">
+      <div class="admin-row__main">
+        <div class="admin-row__title">${escapeHTML(quest.title)} ${statusBadge}</div>
+        <div class="admin-row__sub">${escapeHTML(owner)} · ${escapeHTML(quest.category)} · ${escapeHTML(quest.date)} · ${quest.votes} 人评分</div>
+      </div>
+      <div class="admin-actions">
+        <button class="admin-action" type="button" data-admin-action="status" data-quest-id="${escapeHTML(quest.id)}" data-status="${quest.status === 'approved' ? 'pending' : 'approved'}">${quest.status === 'approved' ? '转为待审' : '通过公开'}</button>
+        ${quest.is_user ? `<button class="admin-action admin-action--danger" type="button" data-admin-action="delete" data-quest-id="${escapeHTML(quest.id)}">删除</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  dom.adminBody.innerHTML = `
+    <div class="admin-section-head">
+      <h3>投稿与审核</h3>
+      <span>${state.adminTotalQuests} 条内容</span>
+    </div>
+    <div class="admin-list">${rows || '<div class="admin-empty">还没有投稿</div>'}</div>`;
+}
+
+async function handleAdminAction(event) {
+  const button = event.target.closest('[data-admin-action]');
+  if (!button) return;
+  const action = button.dataset.adminAction;
+  button.disabled = true;
+
+  try {
+    if (action === 'role') {
+      await apiRequest(`/admin/users/${encodeURIComponent(button.dataset.userId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: button.dataset.role })
+      });
+      showToast('用户角色已更新');
+    } else if (action === 'active') {
+      await apiRequest(`/admin/users/${encodeURIComponent(button.dataset.userId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: button.dataset.active === 'true' })
+      });
+      showToast(button.dataset.active === 'true' ? '用户已启用' : '用户已停用');
+    } else if (action === 'status') {
+      await apiRequest(`/admin/quests/${encodeURIComponent(button.dataset.questId)}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: button.dataset.status })
+      });
+      showToast(button.dataset.status === 'approved' ? '投稿已公开' : '投稿已转为待审');
+    } else if (action === 'delete') {
+      if (!window.confirm('确定永久删除这条投稿吗？')) return;
+      await apiRequest(`/quests/${encodeURIComponent(button.dataset.questId)}`, { method: 'DELETE' });
+      showToast('投稿已删除');
+    }
+
+    await Promise.all([loadAdminData(), loadServerQuests()]);
+    renderArchive();
+  } catch (error) {
+    console.error('Admin action failed:', error);
+    showToast(error.message || '管理操作失败');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function setupAdmin() {
+  if (!dom.adminLayer) return;
+  dom.adminClose.addEventListener('click', () => closeAdmin());
+  $$('[data-close-admin]').forEach(element => element.addEventListener('click', () => closeAdmin()));
+  dom.adminTabs.forEach(tab => tab.addEventListener('click', () => {
+    state.adminTab = tab.dataset.adminTab;
+    updateAdminTabs();
+    renderAdmin();
+  }));
+  dom.adminBody.addEventListener('click', handleAdminAction);
 }
 
 function mapServerQuest(item) {
@@ -545,6 +950,7 @@ const dom = {
   shareButton: $('#shareButton'),
   holdDelete: $('#holdDelete'),
   holdDeleteText: $('#holdDeleteText'),
+  holdHint: $('#holdHint'),
   detailPrev: $('#detailPrev'),
   detailNext: $('#detailNext'),
   detailPrevTitle: $('#detailPrevTitle'),
@@ -581,7 +987,35 @@ const dom = {
   toastAction: $('#toastAction'),
   cardTemplate: $('#cardTemplate'),
   sparkCanvas: $('#sparkCanvas'),
-  intro: $('#intro')
+  intro: $('#intro'),
+  authSlot: $('#authSlot'),
+  authButton: $('#authButton'),
+  authAvatar: $('#authAvatar'),
+  authLabel: $('#authLabel'),
+  authMenu: $('#authMenu'),
+  authMenuName: $('#authMenuName'),
+  authMenuRole: $('#authMenuRole'),
+  adminPanelButton: $('#adminPanelButton'),
+  logoutButton: $('#logoutButton'),
+  authLayer: $('#authLayer'),
+  authClose: $('#authClose'),
+  authForm: $('#authForm'),
+  authTabs: $$('.auth-tab'),
+  authTabRegister: $('#authTabRegister'),
+  authTitle: $('#authTitle'),
+  authIdentifierField: $('#authIdentifierField'),
+  authIdentifierLabel: $('#authIdentifierLabel'),
+  authIdentifier: $('#authIdentifier'),
+  authEmailField: $('#authEmailField'),
+  authEmail: $('#authEmail'),
+  authPassword: $('#authPassword'),
+  authError: $('#authError'),
+  authSubmit: $('#authSubmit'),
+  authSubmitLabel: $('#authSubmitLabel'),
+  adminLayer: $('#adminLayer'),
+  adminClose: $('#adminClose'),
+  adminBody: $('#adminBody'),
+  adminTabs: $$('.admin-tab')
 };
 
 /* ---------------------------------------------------------
@@ -714,18 +1148,6 @@ async function removePersistedUpload(id) {
   }
   const next = state.uploads.filter(item => item.id !== id);
   writeJSON(LS_KEYS.fallbackUploads, next);
-}
-
-function saveManageToken(questId, token) {
-  const tokens = readJSON(LS_KEYS.manageTokens, {});
-  tokens[questId] = token;
-  writeJSON(LS_KEYS.manageTokens, tokens);
-}
-
-function dropManageToken(questId) {
-  const tokens = readJSON(LS_KEYS.manageTokens, {});
-  delete tokens[questId];
-  writeJSON(LS_KEYS.manageTokens, tokens);
 }
 
 /* ---------------------------------------------------------
@@ -1016,7 +1438,7 @@ function renderGallery() {
     $('.quest-card__score-num', card).textContent = rating.votes ? rating.avg.toFixed(1) : 'NEW';
     $('.quest-card__score .star', card).textContent = rating.votes ? '★' : '✳';
 
-    if (quest.isUser) {
+    if (quest.isUser && (!quest.fromApi || quest.is_owner)) {
       const mine = $('.quest-card__mine', card);
       mine.hidden = false;
     }
@@ -1180,6 +1602,8 @@ function setupStats() {
 
 let detailOpen = false;
 let uploadOpen = false;
+let authOpen = false;
+let adminOpen = false;
 
 function starsMarkup(value) {
   const rounded = Math.round(value);
@@ -1352,6 +1776,10 @@ function buildPeekRating(quest, value) {
 
 function commitRating(quest, value, options = {}) {
   if (quest.fromApi) {
+    if (!state.user) {
+      openAuth('rating');
+      return;
+    }
     commitServerRating(quest, value, options);
     return;
   }
@@ -1499,12 +1927,20 @@ function renderDetail(quest) {
   dom.detailTitle.textContent = quest.title;
   dom.detailFeeling.textContent = quest.feeling || '有些时刻来不及描述，只能先把它留下来。';
   dom.detailNote.textContent = CATEGORY_NOTES[quest.category] || CATEGORY_NOTES['校园'];
-  dom.detailMine.hidden = !quest.isUser;
+  dom.detailMine.hidden = !quest.isUser || (quest.fromApi && !quest.is_owner);
   dom.holdDelete.removeAttribute('data-done');
   dom.holdDelete.removeAttribute('data-holding');
   dom.holdDelete.style.setProperty('--hold-p', '0');
-  dom.holdDeleteText.textContent = quest.isUser ? '按住 2 秒 · 从本机删除' : '按住 2 秒 · 从档案中隐藏';
-  $('.hold-delete__done', dom.holdDelete).textContent = quest.isUser ? '已从本机删除' : '已从档案中隐藏';
+  dom.holdDelete.hidden = Boolean(quest.fromApi && quest.isUser && !quest.can_delete);
+  if (quest.fromApi && quest.isUser) {
+    dom.holdDeleteText.textContent = quest.is_owner ? '按住 2 秒 · 删除我的投稿' : '按住 2 秒 · 删除这条投稿';
+    $('.hold-delete__done', dom.holdDelete).textContent = '已删除投稿';
+    if (dom.holdHint) dom.holdHint.textContent = '按住鼠标或手指两秒，确认删除这条投稿。删除后无法恢复。';
+  } else {
+    dom.holdDeleteText.textContent = quest.isUser ? '按住 2 秒 · 从本机删除' : '按住 2 秒 · 从档案中隐藏';
+    $('.hold-delete__done', dom.holdDelete).textContent = quest.isUser ? '已从本机删除' : '已从档案中隐藏';
+    if (dom.holdHint) dom.holdHint.textContent = '按住鼠标或手指两秒，确认移除此支线。此操作只影响当前浏览器。';
+  }
 
   dom.detailPrev.disabled = !previous;
   dom.detailNext.disabled = !next;
@@ -1955,19 +2391,13 @@ async function deleteServerQuest(quest) {
     return;
   }
 
-  const tokens = readJSON(LS_KEYS.manageTokens, {});
-  const token = tokens[quest.id];
-  if (!token) {
-    showToast('没有找到删除凭证，可能是换过浏览器或清理过本地数据');
+  if (!quest.can_delete) {
+    showToast('只能删除自己上传的支线');
     return;
   }
 
   try {
-    await apiRequest(`/quests/${encodeURIComponent(quest.id)}`, {
-      method: 'DELETE',
-      headers: { 'X-Edit-Token': token }
-    });
-    dropManageToken(quest.id);
+    await apiRequest(`/quests/${encodeURIComponent(quest.id)}`, { method: 'DELETE' });
     state.lastDeleted = null;
     await loadServerQuests();
     renderArchive();
@@ -2025,6 +2455,10 @@ function setupFooterActions() {
 }
 
 async function resetServerRatings() {
+  if (!state.user) {
+    openAuth('rating');
+    return;
+  }
   const rated = state.serverQuests.filter(quest => Number(quest.my_rating) > 0);
   if (!rated.length) {
     showToast('你还没有在共享档案里留下评分');
@@ -2510,6 +2944,10 @@ function closeAllGlideSelects() {
 
 function openUpload() {
   if (uploadOpen) return;
+  if (state.serverMode && !state.user) {
+    openAuth('upload');
+    return;
+  }
   if (detailOpen) closeDetail(true);
 
   resetUploadForm();
@@ -2785,15 +3223,14 @@ async function submitServerUpload({ title, place, feeling, dateISO }) {
     form.append('image', dataUrlToBlob(state.pendingImage), 'hdu-daily.jpg');
 
     const response = await apiRequest('/quests', { method: 'POST', body: form });
-    const payload = await response.json();
-    saveManageToken(payload.quest.id, payload.manage_token);
+    const quest = await response.json();
 
     state.filter = 'all';
     $$('.filter', dom.filters).forEach(button => button.classList.toggle('is-active', button.dataset.filter === 'all'));
     closeUpload(true);
     await loadServerQuests();
     renderArchive();
-    showToast('这条杭电日常已加入共享档案', '打开', () => openDetail(payload.quest.id), 5200);
+    showToast('这条杭电日常已加入共享档案', '打开', () => openDetail(quest.id), 5200);
   } catch (error) {
     console.error('Upload request failed:', error);
     dom.publishButton.disabled = false;
@@ -3093,6 +3530,14 @@ function setupGlobalKeys() {
         activeGlideClose();
         return;
       }
+      if (adminOpen) {
+        closeAdmin();
+        return;
+      }
+      if (authOpen) {
+        closeAuth();
+        return;
+      }
       if (uploadOpen) {
         closeUpload();
         return;
@@ -3116,7 +3561,15 @@ function setupGlobalKeys() {
 
     if (event.key !== 'Tab') return;
 
-    const layer = uploadOpen ? dom.uploadLayer : detailOpen ? dom.detailLayer : null;
+    const layer = adminOpen
+      ? dom.adminLayer
+      : authOpen
+        ? dom.authLayer
+        : uploadOpen
+          ? dom.uploadLayer
+          : detailOpen
+            ? dom.detailLayer
+            : null;
     if (!layer) return;
 
     const focusable = getFocusable(layer);
@@ -3153,6 +3606,8 @@ async function init() {
   setupGlideSelects();
   setupUpload();
   setupFooterActions();
+  setupAuth();
+  setupAdmin();
   setupSling();
   setupGlobalKeys();
   setupSparkCanvas();
@@ -3167,13 +3622,20 @@ async function init() {
   const apiReady = state.apiBase
     ? connectApiWithRetry()
         .then(async available => {
-          if (!available) return false;
+          state.authAvailable = available;
+          if (!available) {
+            updateAuthUI();
+            return false;
+          }
+          await restoreSession();
           const loaded = await loadServerQuests();
           if (loaded) console.info('杭电支线：已连接 FastAPI 共享档案');
           return loaded;
         })
         .catch(error => {
           console.warn('FastAPI unavailable, using local archive:', error);
+          state.authAvailable = false;
+          updateAuthUI();
           return false;
         })
     : Promise.resolve(false);

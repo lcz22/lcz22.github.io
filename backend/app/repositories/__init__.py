@@ -2,6 +2,7 @@
 
 from .base import NewQuest, QuestRecord, QuestRepository, RatingSummary, StatsRecord
 from .sqlalchemy_repo import SqlAlchemyQuestRepository
+from .users import SqlAlchemyUserRepository, UserRepository
 
 __all__ = [
     "NewQuest",
@@ -10,4 +11,6 @@ __all__ = [
     "RatingSummary",
     "StatsRecord",
     "SqlAlchemyQuestRepository",
+    "UserRepository",
+    "SqlAlchemyUserRepository",
 ]

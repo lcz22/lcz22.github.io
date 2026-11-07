@@ -9,6 +9,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from .admin import router as admin_router
+from .auth import router as auth_router
 from .config import settings
 from .db import dispose_db, init_db
 from .routes import router
@@ -26,6 +28,7 @@ app = FastAPI(
     title=settings.app_name,
     description=(
         "杭电支线的后端 API。前端只通过 HTTP 访问此服务，不直接连接数据库。"
+        "包含邮箱/用户名登录、JWT 会话、普通用户与管理员权限、评分、投稿和审核。"
         "当前使用 SQLite 验证接口；提供 PostgreSQL 后修改 DATABASE_URL 即可切换。"
     ),
     version=settings.app_version,
@@ -42,6 +45,8 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix=settings.api_prefix)
+app.include_router(auth_router, prefix=settings.api_prefix)
+app.include_router(admin_router, prefix=settings.api_prefix)
 
 # Uploaded images are public. In production this can be replaced by OSS + CDN.
 Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)

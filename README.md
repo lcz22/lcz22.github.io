@@ -31,12 +31,13 @@ cd backend
 .\start-backend.bat
 ```
 
-2. 第一次启动后，在另一个终端把 16 条预设内容写入 SQLite：
+2. 第一次启动后，在另一个终端把 16 条预设内容写入 SQLite，并创建管理员：
 
 ```powershell
 cd backend
 .\.venv\Scripts\Activate.ps1
 python -m app.seed
+python -m app.create_admin admin admin@example.com "你的管理员密码"
 ```
 
 3. 启动前端：
@@ -49,13 +50,15 @@ python -m app.seed
 
 ## 已实现的功能
 
+- **账号系统**：邮箱 + 用户名 + 密码注册登录，JWT 会话；游客可以浏览，登录后可以评分、投稿和删除自己的投稿。
+- **权限管理**：普通用户 / 管理员两种角色；管理员可以查看用户、修改角色、停用账号、审核投稿、删除任意投稿。
 - **Grid Motion 背景**：4 行斜向照片墙持续漂移，鼠标移动会带来轻微视差与逐张照片的点亮效果；每一张背景照片都能点击进入详情。
 - **单图详情**：拍摄日期、时间、地点、当下的感受、分类注脚与照片编号；进入详情时照片会从索引卡片或背景照片的位置展开，内容再分层淡入。
 - **Reflective Card 图片卡**：照片嵌在一张会随鼠标轻微倾斜的金属相片卡中，边缘有拉丝金属、移动高光与反光层。
 - **Peek Rating 评分**：鼠标悬停时星星会上浮、放大并显示评分标签，点击提交；再次点击同一颗星可收回评分。支持键盘方向键与屏幕阅读器。
-- **Hold Button 删除**：在详情页底部按住 2 秒，隐藏预设支线或删除自己上传的支线；顶部会出现撤销提示。
+- **Hold Button 删除**：作者的投稿、预设支线的本机隐藏可以按住 2 秒完成；普通游客不能删除他人的投稿，管理员可以删除任意投稿。
 - **Sling Button 上传入口**：首页右下角的圆形按钮可以点击，也可以向外拖拽后松开发射；打开上传窗口。
-- **照片上传**：支持 JPG / PNG / WEBP / GIF / AVIF / BMP，拖拽或点击选择，单张最大 20MB。图片在浏览器本地压缩到最长边 1800px 后保存。
+- **照片上传**：支持 JPG / PNG / WEBP / GIF / AVIF / BMP，拖拽或点击选择，单张最大 20MB。图片在浏览器本地压缩到最长边 1800px 后上传到 FastAPI；后端再统一转成 JPEG。
 - **Glide Select 选择器**：图片类目使用滑动的 Glide Select；拍摄日期拆成年 / 月 / 日三个联动的 Glide Select，切换月份时会自动校正天数，菜单带高亮滑轨、方向键操作和视口边缘翻转。
 - **杭电分类**：校园 / 下沙 / 杭州 / 相遇 / 深夜，支持筛选、空状态与恢复隐藏内容。
 - **辅助动效**：标题 BlurText 入场、卡片 3D 倾斜、点击火花（ClickSpark）、滚动揭示、数字递增、斜向 Marquee。
@@ -67,12 +70,15 @@ python -m app.seed
 | --- | --- |
 | 点击背景任何照片 | 打开对应杭电日常 |
 | 点击索引卡片 | 打开对应杭电日常 |
-| 拖拽 / 点击右下圆形按钮 | 打开投稿窗口 |
+| 点击右上角「登录 / 注册」 | 打开账号窗口 |
+| 登录后点击右上角头像 | 打开账号菜单 / 管理后台 |
+| 点击星星 | 未登录时先登录；登录后提交评分 |
+| 拖拽 / 点击右下圆形按钮 | 登录后打开投稿窗口 |
 | 在详情页拖拽星星 | 预览分数并显示标签 |
 | 点击星星 / 再点一次 | 提交评分 / 收回评分 |
 | 类目或日期选择器：`↑` `↓` `Home` `End` | 在高亮行间移动 |
 | 类目或日期选择器：`Enter` / `Space` | 确认选择 |
-| 按住详情页底部按钮 2 秒 | 删除 / 隐藏支线 |
+| 按住详情页底部按钮 2 秒 | 删除自己的投稿 / 隐藏预设支线 |
 | 详情页 `←` / `→` | 上一条 / 下一条 |
 | `Esc` | 关闭弹层 |
 | 拖拽照片到上传框 | 选择照片 |
@@ -84,7 +90,8 @@ python -m app.seed
 - **本地 FastAPI 可用时**：列表、评分、上传、删除走 FastAPI + SQLite，所有访问 `127.0.0.1:4173` 的浏览器共享同一份数据。
 - **FastAPI 不可用时**：自动回退到原来的 localStorage / IndexedDB 模式，GitHub Pages 线上页面仍然可以使用。
 - **被隐藏的预设支线**：仍保存在本地 `localStorage`（隐藏只是当前浏览器的个人视图）。
-- **访客评分身份**：自动生成一个 UUID，保存在本地并随 API 请求发送，用于保证一条支线只有一个当前评分。
+- **登录身份**：登录后 JWT 保存在本地 `localStorage`，退出登录时清除；评分和投稿都绑定账号。
+- **管理员**：通过 `python -m app.create_admin` 创建，拥有用户管理和审核权限。
 
 本地联调时，启动 FastAPI 后可以和其他浏览器/设备共享同一份 SQLite 数据。正式上线换成 PostgreSQL / MySQL 后，才会成为真正校园范围的共享档案。
 
@@ -104,24 +111,28 @@ OSS（照片）
 
 已包含：
 
+- 注册 / 登录 / 当前用户：`/api/auth/*`；
 - `GET /api/quests`、`GET /api/quests/{id}`：列表与详情；
-- `POST /api/quests`：multipart 上传照片并创建支线；
-- `PUT /api/quests/{id}/rating`：提交 / 修改评分；
+- `POST /api/quests`：登录后 multipart 上传照片并创建支线；
+- `PUT /api/quests/{id}/rating`：登录后提交 / 修改评分；
 - `DELETE /api/quests/{id}/rating`：收回评分；
-- `DELETE /api/quests/{id}`：使用一次性 `manage_token` 删除自己的投稿；
+- `DELETE /api/quests/{id}`：作者或管理员删除投稿；
+- `GET /api/admin/users`、`PATCH /api/admin/users/{id}`：管理员用户与角色管理；
+- `GET /api/admin/quests`、`PATCH /api/admin/quests/{id}/status`：管理员审核；
 - `GET /api/stats`、`GET /api/categories`、`GET /api/health`；
 - Swagger 文档：`http://127.0.0.1:8000/docs`。
 
-数据库访问已抽象成 `QuestRepository`，当前实现是 SQLAlchemy；后续拿到 PostgreSQL 后只需修改 `backend/.env` 的 `DATABASE_URL`，然后执行 `python -m app.init_db`。
+数据库访问已抽象成 `QuestRepository` 和 `UserRepository`，当前实现是 SQLAlchemy；后续拿到 PostgreSQL 后只需修改 `backend/.env` 的 `DATABASE_URL`，然后执行 `python -m app.init_db`。
 
 前端已接入 API：本地打开 `http://127.0.0.1:4173/` 会自动探测 `http://127.0.0.1:8000/api`；如果后端不可用，会自动回退到 localStorage 模式。第一次启动后端时需要执行：
 
 ```powershell
 cd backend
 python -m app.seed
+python -m app.create_admin admin admin@example.com "你的管理员密码"
 ```
 
-`seed` 会把 16 条预设杭电日常写入 SQLite，页面就能从 API 读取统一的初始内容。
+`seed` 会把 16 条预设杭电日常写入 SQLite，页面就能从 API 读取统一的初始内容。`create_admin` 用来创建第一个管理员，之后可以在页面里的「管理后台」继续管理用户。
 
 ## 文件结构
 
@@ -132,7 +143,10 @@ python -m app.seed
 ├─ app.js                   数据、背景、评分、上传、删除、路由
 ├─ start-preview.bat        一键启动本地预览
 ├─ preview-server.mjs       Node 备用静态服务器
-├─ backend/                 FastAPI 后端（接口 + 数据库抽象）
+├─ backend/                 FastAPI 后端（认证、权限、数据库抽象）
+│  ├─ app/auth.py           登录 / 注册
+│  ├─ app/admin.py          管理员接口
+│  ├─ app/security.py       JWT / 密码哈希
 │  └─ seed/presets.json     16 条预设数据
 ├─ README.md
 └─ assets/

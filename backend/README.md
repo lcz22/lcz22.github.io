@@ -1,31 +1,35 @@
 # 杭电支线 · FastAPI 后端
 
-这个目录是「杭电支线」的后端。前端只通过 HTTP API 访问数据，**不会直接连接数据库**。
+「杭电支线」的 FastAPI 后端。前端通过 HTTP API 访问数据，不会直接连接数据库。
 
-当前默认用 SQLite 跑通接口；你后续拿到 PostgreSQL / MySQL 后，只需要修改 `DATABASE_URL`，API、前端调用方式和图片上传流程都不需要改。
-
-前端已经接入这组 API：本地打开 `http://127.0.0.1:4173/` 时会自动探测 `http://127.0.0.1:8000/api`。如果 FastAPI 或数据库不可用，会自动回退到原来的 localStorage 模式。线上 GitHub Pages 也保留了这个 fallback。
+当前默认用 SQLite 跑通完整闭环；拿到 PostgreSQL / MySQL 后，只需要修改 `DATABASE_URL`，API、前端调用方式和图片上传流程都不需要改。
 
 ## 目录结构
 
 ```text
 backend/
 ├─ app/
-│  ├─ config.py                 # 环境变量、分类、上传限制
+│  ├─ config.py                 # 环境变量、JWT、分类、上传限制
 │  ├─ db.py                     # async SQLAlchemy engine / session
-│  ├─ models.py                 # quests、ratings 表
+│  ├─ models.py                 # users / quests / ratings
 │  ├─ schemas.py                # Pydantic 请求 / 响应结构
-│  ├─ storage.py                # 图片存储抽象 + 本地实现（后续可换 OSS）
-│  ├─ routes.py                 # REST API
+│  ├─ security.py               # scrypt 密码哈希、JWT、权限依赖
+│  ├─ auth.py                   # 注册 / 登录 / 当前用户
+│  ├─ admin.py                  # 管理员用户管理与投稿审核
+│  ├─ serializers.py            # QuestOut 序列化
+│  ├─ storage.py                # 图片存储抽象 + 本地实现
+│  ├─ routes.py                 # 公开支线 / 评分 / 投稿接口
 │  ├─ main.py                   # FastAPI 入口
 │  ├─ init_db.py                # 手动建表
 │  ├─ seed.py                   # 导入 16 条预设杭电日常
+│  ├─ create_admin.py           # 创建第一个管理员
 │  └─ repositories/
-│     ├─ base.py                # 数据库接口 QuestRepository
-│     └─ sqlalchemy_repo.py     # SQLAlchemy 实现
-├─ seed/presets.json            # 预设内容（从 app.js 生成）
+│     ├─ base.py                # QuestRepository
+│     ├─ sqlalchemy_repo.py     # 支线 / 评分实现
+│     └─ users.py               # 用户数据访问
+├─ seed/presets.json            # 预设内容
 ├─ sql/schema.sql               # PostgreSQL 建表参考
-├─ tests/test_api.py            # 接口测试
+├─ tests/test_api.py            # 登录、权限、审核、接口测试
 ├─ uploads/                     # 本地图片目录（不提交）
 ├─ requirements.txt
 ├─ .env.example
@@ -40,18 +44,12 @@ backend/
 py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
+python -m app.seed
+python -m app.create_admin admin admin@example.com "你的管理员密码"
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-或者双击 `start-backend.bat`。
-
-如果是第一次启动、数据库还是空的，需要导入 16 条预设杭电日常：
-
-```powershell
-python -m app.seed
-```
-
-`seed.py` 会从 `seed/presets.json` 读取内容，图片 URL 使用 `FRONTEND_BASE_URL` 拼接。已经存在的 ID 会跳过，重复执行不会插入重复数据。
+也可以双击 `start-backend.bat` 启动服务，但第一次仍需手动执行 `python -m app.seed` 和 `python -m app.create_admin ...`。
 
 启动后：
 
@@ -59,59 +57,121 @@ python -m app.seed
 - Swagger 文档：<http://127.0.0.1:8000/docs>
 - 健康检查：<http://127.0.0.1:8000/api/health>
 
+`seed.py` 会从 `seed/presets.json` 读取内容，图片 URL 使用 `FRONTEND_BASE_URL` 拼接。已经存在的 ID 会跳过，重复执行不会插入重复数据。
+
+## 用户与权限
+
+角色只有两种：
+
+| 角色 | 权限 |
+| --- | --- |
+| 游客 | 浏览支线、查看详情、查看统计 |
+| `user` 普通用户 | 游客权限 + 评分 + 投稿 + 删除自己的投稿 |
+| `admin` 管理员 | 普通用户权限 + 查看用户 + 修改角色 / 启用停用 + 审核投稿 + 删除任意投稿 |
+
+登录后请求头使用：
+
+```http
+Authorization: Bearer <access_token>
+```
+
+JWT 里包含用户 ID、用户名和角色，但每次请求仍会从数据库读取用户状态，因此管理员停用账号后会立即失效。
+
+密码使用 Python 标准库的 **scrypt** 加盐哈希，数据库不保存明文密码。
+
 ## 接口一览
+
+### 认证
 
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
-| GET | `/api/health` | 健康检查 |
-| GET | `/api/categories` | 获取分类 |
-| GET | `/api/stats` | 总条数、总评分、分类数量 |
-| GET | `/api/quests` | 支线列表，支持 `category` / `limit` / `offset` |
-| GET | `/api/quests/{id}` | 单条支线 |
-| POST | `/api/quests` | multipart 上传照片并创建支线 |
-| DELETE | `/api/quests/{id}` | 用 `X-Edit-Token` 删除自己的支线 |
-| PUT | `/api/quests/{id}/rating` | 提交 / 修改自己的评分 |
-| DELETE | `/api/quests/{id}/rating` | 收回自己的评分 |
+| GET | `/api/auth/config` | 是否开放注册 |
+| POST | `/api/auth/register` | 注册并直接返回 token |
+| POST | `/api/auth/login` | 登录 |
+| GET | `/api/auth/me` | 获取当前用户 |
 
-所有需要“匿名访客身份”的评分接口，通过请求头传递：
+注册请求：
 
-```http
-X-Visitor-Id: a-random-visitor-id
+```json
+{
+  "username": "your_name",
+  "email": "you@example.com",
+  "password": "at-least-8-chars"
+}
 ```
 
-前端可以在浏览器首次访问时生成一个 UUID 并保存在 `localStorage`。
+登录请求：
 
-创建支线后，接口会返回一次性的 `manage_token`。删除时放在：
-
-```http
-X-Edit-Token: the-manage-token
+```json
+{
+  "identifier": "your_name 或 you@example.com",
+  "password": "at-least-8-chars"
+}
 ```
 
-数据库里只保存它的 SHA-256 哈希，不保存明文。
+### 支线与评分
 
-## 创建支线示例
+| 方法 | 路径 | 权限 |
+| --- | --- | --- |
+| GET | `/api/quests` | 公开，登录后包含自己的评分 |
+| GET | `/api/quests/{id}` | 公开 |
+| POST | `/api/quests` | 登录用户 |
+| DELETE | `/api/quests/{id}` | 作者或管理员 |
+| PUT | `/api/quests/{id}/rating` | 登录用户 |
+| DELETE | `/api/quests/{id}/rating` | 登录用户 |
+| GET | `/api/stats` | 公开 |
+| GET | `/api/categories` | 公开 |
 
-```bash
-curl -X POST http://127.0.0.1:8000/api/quests \
-  -F "title=在图书馆躲雨" \
-  -F "shot_date=2026-11-05" \
-  -F "shot_time=16:05" \
-  -F "place=杭电 · 图书馆" \
-  -F "feeling=雨把窗户洗得很亮，我在书架之间站了很久。" \
-  -F "category=校园" \
-  -F "image=@./my-photo.jpg"
+### 管理员
+
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| GET | `/api/admin/users` | 用户列表 |
+| PATCH | `/api/admin/users/{id}` | 修改角色 / 启用停用 |
+| GET | `/api/admin/quests` | 全部投稿（含待审） |
+| PATCH | `/api/admin/quests/{id}/status` | 公开 / 转为待审 |
+
+管理员不能取消自己的管理员身份，也不能停用自己；系统会保证至少保留一名可用管理员。
+
+## 创建第一个管理员
+
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+python -m app.create_admin admin admin@example.com "a-strong-password"
 ```
 
-评分示例：
+如果用户名或邮箱已存在，会把该用户提升为管理员；否则会创建新账号。
 
-```bash
-curl -X PUT http://127.0.0.1:8000/api/quests/<id>/rating \
-  -H "Content-Type: application/json" \
-  -H "X-Visitor-Id: visitor-0001" \
-  -d '{"score": 5}'
-```
+正式部署时不要把管理员密码写在命令行历史或代码里。
 
-## 换成你提供的数据库
+## 前端接入（已完成）
+
+`app.js` 会自动探测 FastAPI：
+
+- 本地访问 `http://127.0.0.1:4173/` 时，API 默认是 `http://127.0.0.1:8000/api`；
+- 可以在 `index.html` 里修改 `window.HDU_API_BASE_URL`，或在 localStorage 设置 `hdu-sidequests.api-base.v1`；
+- 后端不可用或数据库为空时，自动回退到 localStorage 模式；
+- 登录后浏览器保存 JWT 到 localStorage，退出登录时清除；
+- 评分、投稿、删除都走登录态；游客不能评分或投稿。
+
+前端字段与 API 的对应关系：
+
+| 前端字段 | API 字段 |
+| --- | --- |
+| `q.image` | `image` |
+| `q.date` | `date`（`2026.11.02`） |
+| `q.iso` | `iso` |
+| `q.time` | `time` |
+| `q.stamp` | `stamp` |
+| `q.score` / `q.votes` | `score` / `votes` |
+| `q.my_rating` | 当前登录用户自己的评分 |
+| `q.is_user` | 是否为用户投稿 |
+| `q.owner_username` | 投稿者用户名 |
+| `q.is_owner` | 当前登录用户是否为作者 |
+| `q.can_delete` | 当前登录用户能否删除 |
+
+## 换成正式数据库
 
 1. 复制配置：
 
@@ -124,68 +184,38 @@ Copy-Item .env.example .env
 ```env
 # PostgreSQL
 DATABASE_URL=postgresql+asyncpg://用户名:密码@数据库地址:5432/数据库名
-# 如果买的是阿里云 RDS MySQL，改用：
+# 阿里云 RDS MySQL：
 # DATABASE_URL=mysql+aiomysql://用户名:密码@数据库地址:3306/数据库名?charset=utf8mb4
 
 PUBLIC_BASE_URL=https://你的API域名
 FRONTEND_BASE_URL=https://lcz22.github.io
 CORS_ORIGINS=https://lcz22.github.io,http://127.0.0.1:4173
+JWT_SECRET=换成至少32位的随机字符串
 ```
 
-`FRONTEND_BASE_URL` 用于把种子数据的图片指向前端资源；如果是本地联调，保持 `http://127.0.0.1:4173`。`PUBLIC_BASE_URL` 用于用户新上传图片的完整 URL。
+`FRONTEND_BASE_URL` 用于种子数据的图片 URL；`PUBLIC_BASE_URL` 用于新上传图片的完整 URL。
 
-3. 建表：
+3. 建表并导入种子：
 
 ```powershell
 python -m app.init_db
+python -m app.seed
+python -m app.create_admin admin admin@example.com "a-strong-password"
 ```
 
-也可以手动执行 [sql/schema.sql](sql/schema.sql)（该文件是 PostgreSQL 版本；MySQL 直接让 SQLAlchemy 建表即可）。
+也可以手动执行 [sql/schema.sql](sql/schema.sql)（PostgreSQL 版本）。MySQL 直接让 SQLAlchemy 建表。
 
-4. 如果数据库是 PostgreSQL，确认已安装 `asyncpg`；如果是 MySQL，确认已安装 `aiomysql`。两者都已在 `requirements.txt` 里。
+> 生产环境不要把 5432 / 3306 暴露到公网。数据库只允许 ECS 内网 IP 访问。
+> 表结构频繁变化时建议接入 Alembic，而不是长期依赖 `create_all`。
 
-> 生产环境不要把 5432 暴露到公网。数据库只允许 ECS 内网 IP 访问；后端和数据库最好在同一个 VPC。
-> 后续如果表结构经常变化，建议接入 Alembic 做迁移，而不是长期依赖 `create_all`。
+## 安全说明
 
-## 设计说明
-
-### 数据库接口
-
-`app/repositories/base.py` 定义了 `QuestRepository`，HTTP 层只依赖这个抽象。当前实现是 `SqlAlchemyQuestRepository`。
-
-如果以后要换数据库或换数据访问方式，可以实现同一组方法：
-
-- `list_quests`
-- `get_quest`
-- `create_quest`
-- `delete_quest`
-- `upsert_rating`
-- `delete_rating`
-- `stats`
-
-然后在 `routes.py` 的 `get_repository` 里替换实现即可。
-
-### 图片存储
-
-`app/storage.py` 的 `ImageStorage` 抽象目前有 `LocalImageStorage`。以后接阿里云 OSS 时：
-
-1. 新增 `OssImageStorage` 实现 `save` / `delete`；
-2. 把 `get_storage()` 返回的对象换掉；
-3. API 和前端不用改。
-
-**不要把阿里云 AccessKey 写进前端**。正式接 OSS 时，应由后端生成签名或代理上传。
-
-### 上传安全
-
-- 只接受图片 MIME；
-- 最大 20MB；
-- 服务端使用 Pillow 重新编码为 JPEG，去除原始文件的不可控元数据；
-- 最长边缩到 1800px；
-- 本地文件名使用随机 UUID，避免路径穿越和重名。
-
-### 审核状态
-
-`quests.status` 已预留 `approved / pending`。当前 `AUTO_APPROVE=true`，新投稿直接公开；正式运营建议设为 `false`，并在后续增加管理员审核接口。
+- `JWT_SECRET` 默认值只适合本地开发，部署前必须更换；
+- 密码最少 8 位，但正式站点建议加邮箱验证；
+- 目前没有登录限流、验证码、邮件验证和 IP 频率限制，公开运营前需要补；
+- 管理员审核状态已支持，但正式运营仍建议把 `AUTO_APPROVE=false`；
+- 图片存储仍是本地 `uploads/`，正式运营建议换 OSS；
+- 游客评分已关闭，所有评分都绑定登录用户。
 
 ## 测试
 
@@ -195,33 +225,9 @@ cd backend
 pytest -q
 ```
 
-测试使用临时 SQLite 数据库和临时上传目录，不会动到本地开发数据。
+测试使用临时 SQLite 数据库和临时上传目录，不会动到本地开发数据。覆盖：
 
-## 前端接入（已完成）
-
-`app.js` 现在会自动探测 FastAPI：
-
-- 本地访问 `http://127.0.0.1:4173/` 时，API 默认是 `http://127.0.0.1:8000/api`；
-- 可以在 `index.html` 里修改 `window.HDU_API_BASE_URL`，或在 localStorage 设置 `hdu-sidequests.api-base.v1`；
-- 后端不可用、数据库为空或请求失败时，会自动回退到原来的 localStorage 模式；
-- API 模式下，浏览器会生成并持久化一个 `visitor_id`；
-- 上传成功返回的 `manage_token` 只保存在当前浏览器的 localStorage，换浏览器后将无法删除该投稿。
-
-前端字段与 API 的映射：
-
-| 前端字段 | API 字段 |
-| --- | --- |
-| `q.image` | `image` |
-| `q.date` | `date`（显示格式 `2026.11.02`） |
-| `q.iso` | `iso` |
-| `q.time` | `time` |
-| `q.stamp` | `stamp` |
-| `q.baseScore` / `baseVotes` | 不再使用，读取 `score` / `votes` |
-| `q.isUser` | `is_user` |
-| `q.my_rating` | 当前访客自己的评分 |
-
-评分提交时，前端会自动附带：
-
-```http
-X-Visitor-Id: <localStorage 中生成的 visitor UUID>
-```
+- 注册 / 登录 / `/auth/me`；
+- 游客禁止投稿、游客浏览；
+- 作者评分、作者删除、其他用户禁止删除；
+- 管理员查看用户、审核投稿、删除他人投稿、防止最后一个管理员自降级。

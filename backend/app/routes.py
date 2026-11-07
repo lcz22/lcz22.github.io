@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import re
-import secrets
 from datetime import date, time
 from typing import Annotated
 
@@ -13,7 +10,6 @@ from fastapi import (
     Depends,
     File,
     Form,
-    Header,
     HTTPException,
     Query,
     Response,
@@ -24,22 +20,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import CATEGORIES, settings
 from .db import get_session
-from .repositories import NewQuest, QuestRecord, QuestRepository, SqlAlchemyQuestRepository
+from .repositories import NewQuest, QuestRepository, SqlAlchemyQuestRepository
 from .schemas import (
     CategoriesOut,
     HealthOut,
-    QuestCreated,
     QuestList,
     QuestOut,
     RatingOut,
     RatingUpdate,
     StatsOut,
 )
+from .security import CurrentUser, OptionalUser
+from .serializers import to_quest_out
 from .storage import ImageStorage, InvalidImageError, get_storage
 
 router = APIRouter()
 
-VISITOR_PATTERN = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
 MAX_TITLE = 32
 MAX_PLACE = 40
 MAX_FEELING = 220
@@ -51,53 +47,6 @@ def get_repository(session: Annotated[AsyncSession, Depends(get_session)]) -> Qu
 
 RepositoryDep = Annotated[QuestRepository, Depends(get_repository)]
 StorageDep = Annotated[ImageStorage, Depends(get_storage)]
-
-
-def normalize_visitor(value: str | None) -> str | None:
-    if value is None:
-        return None
-    value = value.strip()
-    if not VISITOR_PATTERN.fullmatch(value):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="X-Visitor-Id 必须是 8–64 位字母、数字、下划线或短横线",
-        )
-    return value
-
-
-def required_visitor(value: str | None) -> str:
-    normalized = normalize_visitor(value)
-    if not normalized:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="缺少 X-Visitor-Id",
-        )
-    return normalized
-
-
-def to_out(record: QuestRecord) -> QuestOut:
-    return QuestOut(
-        id=record.id,
-        title=record.title,
-        date=record.shot_date.strftime("%Y.%m.%d"),
-        iso=record.shot_date.isoformat(),
-        time=record.shot_time.strftime("%H:%M"),
-        place=record.place,
-        feeling=record.feeling,
-        stamp=record.stamp,
-        category=record.category,  # validated at write time
-        image=record.image_url,
-        score=round(record.average_score, 1) if record.average_score is not None else None,
-        votes=record.total_rating_count,
-        my_rating=record.my_rating,
-        is_user=not record.is_seed,
-        status=record.status,
-        created_at=record.created_at,
-    )
-
-
-def token_hash(token: str) -> str:
-    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 @router.get("/health", response_model=HealthOut, tags=["system"])
@@ -124,45 +73,53 @@ async def stats(repository: RepositoryDep) -> StatsOut:
 @router.get("/quests", response_model=QuestList, tags=["public"])
 async def list_quests(
     repository: RepositoryDep,
+    user: OptionalUser,
     category: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
-    x_visitor_id: Annotated[str | None, Header(alias="X-Visitor-Id")] = None,
 ) -> QuestList:
     if category is not None and category not in CATEGORIES:
         raise HTTPException(status_code=400, detail="未知的分类")
-    visitor_id = normalize_visitor(x_visitor_id)
     items, total = await repository.list_quests(
         category=category,
         limit=limit,
         offset=offset,
-        visitor_id=visitor_id,
+        viewer_id=user.id if user else None,
     )
-    return QuestList(items=[to_out(item) for item in items], total=total, limit=limit, offset=offset)
+    return QuestList(
+        items=[to_quest_out(item, user) for item in items],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/quests/{quest_id}", response_model=QuestOut, tags=["public"])
 async def get_quest(
     quest_id: str,
     repository: RepositoryDep,
-    x_visitor_id: Annotated[str | None, Header(alias="X-Visitor-Id")] = None,
+    user: OptionalUser,
 ) -> QuestOut:
-    visitor_id = normalize_visitor(x_visitor_id)
-    record = await repository.get_quest(quest_id, visitor_id=visitor_id)
+    record = await repository.get_quest(
+        quest_id,
+        viewer_id=user.id if user else None,
+        include_unapproved=bool(user and user.role == "admin"),
+    )
     if record is None:
         raise HTTPException(status_code=404, detail="没有找到这条支线")
-    return to_out(record)
+    return to_quest_out(record, user)
 
 
 @router.post(
     "/quests",
-    response_model=QuestCreated,
+    response_model=QuestOut,
     status_code=status.HTTP_201_CREATED,
     tags=["submission"],
 )
 async def create_quest(
     repository: RepositoryDep,
     storage: StorageDep,
+    user: CurrentUser,
     title: Annotated[str, Form(min_length=1, max_length=MAX_TITLE)],
     shot_date: Annotated[date, Form()],
     shot_time: Annotated[time, Form()],
@@ -170,7 +127,7 @@ async def create_quest(
     feeling: Annotated[str, Form(max_length=MAX_FEELING)] = "",
     category: Annotated[str, Form()] = "校园",
     image: UploadFile = File(...),
-) -> QuestCreated:
+) -> QuestOut:
     clean_title = title.strip()
     if not clean_title:
         raise HTTPException(status_code=422, detail="标题不能为空")
@@ -182,7 +139,6 @@ async def create_quest(
     except InvalidImageError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    manage_token = secrets.token_urlsafe(24)
     data = NewQuest(
         title=clean_title,
         shot_date=shot_date,
@@ -193,15 +149,23 @@ async def create_quest(
         category=category,
         image_url=stored.url,
         image_filename=stored.filename,
+        owner_id=user.id,
         status="approved" if settings.auto_approve else "pending",
     )
     try:
-        record = await repository.create_quest(data, edit_token_hash=token_hash(manage_token))
+        record = await repository.create_quest(data)
     except Exception:
         storage.delete(stored.filename)
         raise
 
-    return QuestCreated(quest=to_out(record), manage_token=manage_token)
+    if record.owner_username is None:
+        record = await repository.get_quest(
+            record.id,
+            viewer_id=user.id,
+            include_unapproved=True,
+        ) or record
+
+    return to_quest_out(record, user)
 
 
 @router.delete("/quests/{quest_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["submission"])
@@ -209,14 +173,24 @@ async def delete_quest(
     quest_id: str,
     repository: RepositoryDep,
     storage: StorageDep,
-    x_edit_token: Annotated[str | None, Header(alias="X-Edit-Token")] = None,
+    user: CurrentUser,
 ) -> Response:
-    if not x_edit_token:
-        raise HTTPException(status_code=400, detail="缺少 X-Edit-Token")
-    record = await repository.delete_quest(quest_id, edit_token_hash=token_hash(x_edit_token))
+    record = await repository.get_quest(
+        quest_id,
+        viewer_id=user.id,
+        include_unapproved=True,
+    )
     if record is None:
-        raise HTTPException(status_code=404, detail="没有找到这条支线，或删除凭证不正确")
-    storage.delete(record.image_filename)
+        raise HTTPException(status_code=404, detail="没有找到这条支线")
+    if record.is_seed:
+        raise HTTPException(status_code=403, detail="预设内容不能删除，只能在本机隐藏")
+    if user.role != "admin" and record.owner_id != user.id:
+        raise HTTPException(status_code=403, detail="只能删除自己上传的支线")
+
+    deleted = await repository.delete_quest(quest_id)
+    if deleted is None:
+        raise HTTPException(status_code=404, detail="没有找到这条支线")
+    storage.delete(deleted.image_filename)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -225,10 +199,9 @@ async def upsert_rating(
     quest_id: str,
     payload: RatingUpdate,
     repository: RepositoryDep,
-    x_visitor_id: Annotated[str | None, Header(alias="X-Visitor-Id")] = None,
+    user: CurrentUser,
 ) -> RatingOut:
-    visitor_id = required_visitor(x_visitor_id)
-    summary = await repository.upsert_rating(quest_id, visitor_id, payload.score)
+    summary = await repository.upsert_rating(quest_id, user.id, payload.score)
     if summary is None:
         raise HTTPException(status_code=404, detail="没有找到这条支线")
     return RatingOut(average=summary.average, votes=summary.votes, my_rating=summary.my_rating)
@@ -238,10 +211,9 @@ async def upsert_rating(
 async def delete_rating(
     quest_id: str,
     repository: RepositoryDep,
-    x_visitor_id: Annotated[str | None, Header(alias="X-Visitor-Id")] = None,
+    user: CurrentUser,
 ) -> RatingOut:
-    visitor_id = required_visitor(x_visitor_id)
-    summary = await repository.delete_rating(quest_id, visitor_id)
+    summary = await repository.delete_rating(quest_id, user.id)
     if summary is None:
         raise HTTPException(status_code=404, detail="没有找到这条支线")
     return RatingOut(average=summary.average, votes=summary.votes, my_rating=summary.my_rating)

@@ -27,4 +27,8 @@ echo.
 echo 杭电支线 API: http://127.0.0.1:8000
 echo Swagger 文档: http://127.0.0.1:8000/docs
 echo.
+echo 首次使用请在另一个终端执行：
+echo   python -m app.seed
+echo   python -m app.create_admin admin admin@example.com "你的管理员密码"
+echo.
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
