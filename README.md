@@ -52,13 +52,15 @@ python -m app.create_admin admin admin@example.com "你的管理员密码"
 
 - **账号系统**：邮箱 + 用户名 + 密码注册登录，JWT 会话；游客可以浏览，登录后可以评分、投稿和删除自己的投稿。
 - **权限管理**：普通用户 / 管理员两种角色；管理员可以查看用户、修改角色、停用账号、审核投稿、删除任意投稿。
+- **内容审核**：新投稿默认进入待审核；作者能看到自己的待审 / 未通过内容和原因，游客只能看到已公开内容；管理员按待审 / 已公开 / 未通过筛选并填写拒绝原因。
+- **实况照片**：支持 HEIC / HEIF 静态图；上传时可附带一段 MP4 / MOV 实况视频，详情页提供「实况」播放按钮。
 - **Grid Motion 背景**：4 行斜向照片墙持续漂移，鼠标移动会带来轻微视差与逐张照片的点亮效果；每一张背景照片都能点击进入详情。
 - **单图详情**：拍摄日期、时间、地点、当下的感受、分类注脚与照片编号；进入详情时照片会从索引卡片或背景照片的位置展开，内容再分层淡入。
 - **Reflective Card 图片卡**：照片嵌在一张会随鼠标轻微倾斜的金属相片卡中，边缘有拉丝金属、移动高光与反光层。
 - **Peek Rating 评分**：鼠标悬停时星星会上浮、放大并显示评分标签，点击提交；再次点击同一颗星可收回评分。支持键盘方向键与屏幕阅读器。
 - **Hold Button 删除**：作者的投稿、预设支线的本机隐藏可以按住 2 秒完成；普通游客不能删除他人的投稿，管理员可以删除任意投稿。
 - **Sling Button 上传入口**：首页右下角的圆形按钮可以点击，也可以向外拖拽后松开发射；打开上传窗口。
-- **照片上传**：支持 JPG / PNG / WEBP / GIF / AVIF / BMP，拖拽或点击选择，单张最大 20MB。图片在浏览器本地压缩到最长边 1800px 后上传到 FastAPI；后端再统一转成 JPEG。
+- **照片上传**：支持 JPG / PNG / WEBP / GIF / AVIF / BMP / HEIC，拖拽或点击选择，单张最大 20MB。图片在浏览器本地压缩到最长边 1800px 后上传到 FastAPI；HEIC 由后端转换。
 - **Glide Select 选择器**：图片类目使用滑动的 Glide Select；拍摄日期拆成年 / 月 / 日三个联动的 Glide Select，切换月份时会自动校正天数，菜单带高亮滑轨、方向键操作和视口边缘翻转。
 - **杭电分类**：校园 / 下沙 / 杭州 / 相遇 / 深夜，支持筛选、空状态与恢复隐藏内容。
 - **辅助动效**：标题 BlurText 入场、卡片 3D 倾斜、点击火花（ClickSpark）、滚动揭示、数字递增、斜向 Marquee。
@@ -92,6 +94,7 @@ python -m app.create_admin admin admin@example.com "你的管理员密码"
 - **被隐藏的预设支线**：仍保存在本地 `localStorage`（隐藏只是当前浏览器的个人视图）。
 - **登录身份**：登录后 JWT 保存在本地 `localStorage`，退出登录时清除；评分和投稿都绑定账号。
 - **管理员**：通过 `python -m app.create_admin` 创建，拥有用户管理和审核权限。
+- **待审核内容**：默认只有作者和管理员可见，通过审核后才进入公共档案。
 
 本地联调时，启动 FastAPI 后可以和其他浏览器/设备共享同一份 SQLite 数据。正式上线换成 PostgreSQL / MySQL 后，才会成为真正校园范围的共享档案。
 
@@ -118,7 +121,7 @@ OSS（照片）
 - `DELETE /api/quests/{id}/rating`：收回评分；
 - `DELETE /api/quests/{id}`：作者或管理员删除投稿；
 - `GET /api/admin/users`、`PATCH /api/admin/users/{id}`：管理员用户与角色管理；
-- `GET /api/admin/quests`、`PATCH /api/admin/quests/{id}/status`：管理员审核；
+- `GET /api/admin/quests`、`PATCH /api/admin/quests/{id}/status`：管理员审核、拒绝原因和筛选；
 - `GET /api/stats`、`GET /api/categories`、`GET /api/health`；
 - Swagger 文档：`http://127.0.0.1:8000/docs`。
 

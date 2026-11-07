@@ -278,10 +278,13 @@ const state = {
   adminQuests: [],
   adminTotalUsers: 0,
   adminTotalQuests: 0,
+  adminQuestFilter: 'pending',
   filter: 'all',
   activeId: null,
   db: null,
   pendingImage: '',
+  pendingFile: null,
+  pendingMotion: null,
   peekValue: 0,
   peekIndex: null,
   peekPressing: false,
@@ -661,6 +664,7 @@ async function openAdmin() {
   adminOpen = true;
   state.lastFocus = document.activeElement;
   state.adminTab = 'users';
+  state.adminQuestFilter = 'pending';
   updateAdminTabs();
   dom.adminBody.innerHTML = '<div class="admin-loading">正在读取用户与投稿…</div>';
   dom.adminLayer.classList.add('is-open');
@@ -693,7 +697,7 @@ async function loadAdminData() {
   try {
     const [usersResponse, questsResponse] = await Promise.all([
       apiRequest('/admin/users?limit=200'),
-      apiRequest('/admin/quests?limit=200')
+      apiRequest(`/admin/quests?limit=200${state.adminQuestFilter === 'all' ? '' : `&status=${encodeURIComponent(state.adminQuestFilter)}`}`)
     ]);
     const users = await usersResponse.json();
     const quests = await questsResponse.json();
@@ -742,26 +746,45 @@ function renderAdmin() {
   const rows = state.adminQuests.map(quest => {
     const statusBadge = quest.status === 'approved'
       ? '<span class="admin-badge">已公开</span>'
-      : '<span class="admin-badge admin-badge--pending">待审核</span>';
+      : quest.status === 'rejected'
+        ? '<span class="admin-badge admin-badge--off">未通过</span>'
+        : '<span class="admin-badge admin-badge--pending">待审核</span>';
     const owner = quest.owner_username ? `@${quest.owner_username}` : '预设内容';
+    const reason = quest.review_reason
+      ? `<div class="admin-reason">拒绝原因：${escapeHTML(quest.review_reason)}</div>`
+      : '';
     return `<div class="admin-row">
+      <a class="admin-thumb" href="${escapeHTML(quest.image)}" target="_blank" rel="noopener" aria-label="查看投稿原图">
+        <img src="${escapeHTML(quest.image)}" alt="" loading="lazy">
+      </a>
       <div class="admin-row__main">
         <div class="admin-row__title">${escapeHTML(quest.title)} ${statusBadge}</div>
-        <div class="admin-row__sub">${escapeHTML(owner)} · ${escapeHTML(quest.category)} · ${escapeHTML(quest.date)} · ${quest.votes} 人评分</div>
+        <div class="admin-row__sub">${escapeHTML(owner)} · ${escapeHTML(quest.category)} · ${escapeHTML(quest.date)} · ${quest.votes} 人评分${quest.has_motion ? ` · <a class="admin-motion-link" href="${escapeHTML(quest.motion)}" target="_blank" rel="noopener">实况视频</a>` : ''}</div>
+        <div class="admin-row__excerpt">${escapeHTML((quest.feeling || '').slice(0, 90))}</div>
+        ${reason}
       </div>
       <div class="admin-actions">
         <button class="admin-action" type="button" data-admin-action="status" data-quest-id="${escapeHTML(quest.id)}" data-status="${quest.status === 'approved' ? 'pending' : 'approved'}">${quest.status === 'approved' ? '转为待审' : '通过公开'}</button>
+        ${quest.status === 'rejected' ? '' : `<button class="admin-action admin-action--danger" type="button" data-admin-action="reject" data-quest-id="${escapeHTML(quest.id)}">拒绝</button>`}
         ${quest.is_user ? `<button class="admin-action admin-action--danger" type="button" data-admin-action="delete" data-quest-id="${escapeHTML(quest.id)}">删除</button>` : ''}
       </div>
     </div>`;
   }).join('');
+
+  const filters = [
+    ['pending', '待审核'],
+    ['approved', '已公开'],
+    ['rejected', '未通过'],
+    ['all', '全部']
+  ].map(([value, label]) => `<button class="admin-filter ${state.adminQuestFilter === value ? 'is-active' : ''}" type="button" data-admin-filter="${value}">${label}</button>`).join('');
 
   dom.adminBody.innerHTML = `
     <div class="admin-section-head">
       <h3>投稿与审核</h3>
       <span>${state.adminTotalQuests} 条内容</span>
     </div>
-    <div class="admin-list">${rows || '<div class="admin-empty">还没有投稿</div>'}</div>`;
+    <div class="admin-filters">${filters}</div>
+    <div class="admin-list">${rows || '<div class="admin-empty">这个筛选下还没有投稿</div>'}</div>`;
 }
 
 async function handleAdminAction(event) {
@@ -792,6 +815,20 @@ async function handleAdminAction(event) {
         body: JSON.stringify({ status: button.dataset.status })
       });
       showToast(button.dataset.status === 'approved' ? '投稿已公开' : '投稿已转为待审');
+    } else if (action === 'reject') {
+      const reason = window.prompt('填写拒绝原因（会展示给投稿者）：', '内容需要调整后再发布');
+      if (reason === null) return;
+      const trimmed = reason.trim();
+      if (!trimmed) {
+        showToast('请填写拒绝原因');
+        return;
+      }
+      await apiRequest(`/admin/quests/${encodeURIComponent(button.dataset.questId)}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'rejected', reason: trimmed })
+      });
+      showToast('投稿已拒绝，原因会展示给作者');
     } else if (action === 'delete') {
       if (!window.confirm('确定永久删除这条投稿吗？')) return;
       await apiRequest(`/quests/${encodeURIComponent(button.dataset.questId)}`, { method: 'DELETE' });
@@ -817,7 +854,15 @@ function setupAdmin() {
     updateAdminTabs();
     renderAdmin();
   }));
-  dom.adminBody.addEventListener('click', handleAdminAction);
+  dom.adminBody.addEventListener('click', event => {
+    const filter = event.target.closest('[data-admin-filter]');
+    if (filter) {
+      state.adminQuestFilter = filter.dataset.adminFilter;
+      loadAdminData();
+      return;
+    }
+    handleAdminAction(event);
+  });
 }
 
 function mapServerQuest(item) {
@@ -929,6 +974,10 @@ const dom = {
   detailIndex: $('#detailIndex'),
   detailCategory: $('#detailCategory'),
   detailImage: $('#detailImage'),
+  detailVideo: $('#detailVideo'),
+  motionToggle: $('#motionToggle'),
+  motionToggleLabel: $('#motionToggleLabel'),
+  detailReview: $('#detailReview'),
   reflectiveCard: $('#reflectiveCard'),
   detailStampDate: $('#detailStampDate'),
   detailStampPlace: $('#detailStampPlace'),
@@ -960,6 +1009,11 @@ const dom = {
   uploadNo: $('#uploadNo'),
   uploadForm: $('#uploadForm'),
   fileInput: $('#fileInput'),
+  motionInput: $('#motionInput'),
+  motionPick: $('#motionPick'),
+  motionFile: $('#motionFile'),
+  motionName: $('#motionName'),
+  motionRemove: $('#motionRemove'),
   dropzone: $('#dropzone'),
   dropEmpty: $('#dropEmpty'),
   dropPreview: $('#dropPreview'),
@@ -1438,6 +1492,16 @@ function renderGallery() {
     $('.quest-card__score-num', card).textContent = rating.votes ? rating.avg.toFixed(1) : 'NEW';
     $('.quest-card__score .star', card).textContent = rating.votes ? '★' : '✳';
 
+    const reviewBadge = $('.quest-card__review', card);
+    const reviewStatus = quest.fromApi ? quest.status : 'approved';
+    if (reviewStatus && reviewStatus !== 'approved') {
+      reviewBadge.hidden = false;
+      reviewBadge.textContent = reviewStatus === 'pending' ? '待审核' : '未通过';
+      reviewBadge.classList.add(`is-${reviewStatus}`);
+    } else {
+      reviewBadge.hidden = true;
+    }
+
     if (quest.isUser && (!quest.fromApi || quest.is_owner)) {
       const mine = $('.quest-card__mine', card);
       mine.hidden = false;
@@ -1776,6 +1840,10 @@ function buildPeekRating(quest, value) {
 
 function commitRating(quest, value, options = {}) {
   if (quest.fromApi) {
+    if (quest.status && quest.status !== 'approved') {
+      showToast(quest.status === 'pending' ? '审核通过后才可以评分' : '未通过审核的投稿不能评分');
+      return;
+    }
     if (!state.user) {
       openAuth('rating');
       return;
@@ -1913,6 +1981,24 @@ function renderDetail(quest) {
   const next = visible.length > 1 ? visible[(visibleIndex + 1) % visible.length] : null;
   const rating = getRating(quest);
 
+  stopDetailMotion();
+  dom.motionToggle.hidden = !quest.motion;
+  dom.motionToggleLabel.textContent = '实况';
+  if (quest.motion) {
+    dom.detailVideo.src = quest.motion;
+  } else {
+    dom.detailVideo.removeAttribute('src');
+  }
+
+  const reviewState = quest.fromApi && quest.status && quest.status !== 'approved';
+  dom.detailReview.hidden = !reviewState;
+  if (reviewState) {
+    dom.detailReview.className = `detail-review detail-review--${quest.status}`;
+    dom.detailReview.textContent = quest.status === 'pending'
+      ? '这条投稿正在等待管理员审核，目前只有你和管理员看得到。'
+      : `未通过审核：${quest.review_reason || '内容需要调整'}。可以删除后重新投稿。`;
+  }
+
   dom.detailIndex.textContent = `${pad(index + 1)} / ${pad(archive.length)}`;
   dom.detailCategory.textContent = quest.category;
   dom.detailImage.src = quest.image;
@@ -1953,8 +2039,44 @@ function renderDetail(quest) {
   dom.detailScroll.scrollTop = 0;
 
   renderRatingCard(quest);
+  dom.peekRating.classList.toggle('is-disabled', Boolean(reviewState));
+  if (reviewState) {
+    dom.ratingNote.textContent = quest.status === 'pending'
+      ? '审核通过后开放评分。'
+      : '未通过审核的投稿不能评分。';
+  }
 
   document.title = `${quest.title} · 杭电支线`;
+}
+
+function stopDetailMotion() {
+  if (!dom.detailVideo) return;
+  dom.detailVideo.pause();
+  dom.detailVideo.hidden = true;
+  dom.detailVideo.currentTime = 0;
+  dom.detailImage.style.opacity = '';
+  dom.reflectiveCard?.classList.remove('is-playing-motion');
+  if (dom.motionToggleLabel) dom.motionToggleLabel.textContent = '实况';
+}
+
+function toggleDetailMotion() {
+  if (!state.activeId) return;
+  const quest = findQuest(state.activeId);
+  if (!quest?.motion) return;
+
+  if (!dom.detailVideo.hidden) {
+    stopDetailMotion();
+    return;
+  }
+
+  dom.reflectiveCard?.classList.add('is-playing-motion');
+  dom.detailImage.style.opacity = '0';
+  dom.detailVideo.hidden = false;
+  dom.motionToggleLabel.textContent = '关闭实况';
+  dom.detailVideo.play().catch(() => {
+    showToast('这个实况视频的编码暂时无法播放');
+    stopDetailMotion();
+  });
 }
 
 function navigateDetail(direction) {
@@ -2135,6 +2257,7 @@ function clearPhotoFlight() {
 
 function closeDetail(skipFocus = false) {
   if (!detailOpen) return;
+  stopDetailMotion();
   clearPhotoFlight();
   detailOpen = false;
   state.activeId = null;
@@ -2201,6 +2324,13 @@ function setupDetail() {
 
   dom.detailPrev.addEventListener('click', () => navigateDetail(-1));
   dom.detailNext.addEventListener('click', () => navigateDetail(1));
+  dom.motionToggle.addEventListener('click', toggleDetailMotion);
+  dom.detailVideo.addEventListener('error', () => {
+    if (!dom.detailVideo.hidden) {
+      showToast('这个实况视频的编码暂时无法播放');
+      stopDetailMotion();
+    }
+  });
 
   dom.detailImage.addEventListener('error', () => {
     if (!state.flight && !state.flightPending) dom.detailImage.style.opacity = '0.15';
@@ -2977,6 +3107,8 @@ function closeUpload(skipFocus = false) {
 
 function resetUploadForm() {
   state.pendingImage = '';
+  state.pendingFile = null;
+  state.pendingMotion = null;
   dom.uploadForm.reset();
   dom.fieldDate.value = todayISO();
   dom.fieldTime.value = currentTime();
@@ -2984,6 +3116,9 @@ function resetUploadForm() {
   categoryPicker?.setValue('校园');
   datePicker?.setDate(todayISO());
   dom.fileInput.value = '';
+  dom.motionInput.value = '';
+  dom.motionFile.hidden = true;
+  dom.motionName.textContent = '';
   dom.dropEmpty.hidden = false;
   dom.dropPreview.hidden = true;
   dom.previewImg.removeAttribute('src');
@@ -3004,6 +3139,18 @@ function setupUpload() {
   dom.fileInput.addEventListener('change', event => {
     const file = event.target.files?.[0];
     if (file) handleFile(file);
+  });
+
+  dom.motionPick.addEventListener('click', () => dom.motionInput.click());
+  dom.motionInput.addEventListener('change', event => {
+    const file = event.target.files?.[0];
+    if (file) setMotionFile(file);
+  });
+  dom.motionRemove.addEventListener('click', () => {
+    state.pendingMotion = null;
+    dom.motionFile.hidden = true;
+    dom.motionName.textContent = '';
+    dom.motionInput.value = '';
   });
 
   dom.dropzone.addEventListener('click', event => {
@@ -3062,7 +3209,19 @@ function setupUpload() {
 function isImageFile(file) {
   if (!file) return false;
   if (file.type && file.type.startsWith('image/')) return true;
-  return /\.(jpe?g|png|webp|gif|avif|bmp)$/i.test(file.name);
+  return /\.(jpe?g|png|webp|gif|avif|bmp|heic|heif)$/i.test(file.name);
+}
+
+function isHeicFile(file) {
+  if (!file) return false;
+  return /^image\/(heic|heif)$/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
+}
+
+function isMotionFile(file) {
+  if (!file) return false;
+  return file.type === 'video/mp4'
+    || file.type === 'video/quicktime'
+    || /\.(mp4|mov)$/i.test(file.name);
 }
 
 async function handleFile(file) {
@@ -3084,7 +3243,23 @@ async function handleFile(file) {
   dom.dropEmpty.style.opacity = '0.55';
 
   try {
+    if (isHeicFile(file)) {
+      if (!state.serverMode) {
+        showToast('HEIC 需要连接 FastAPI 后才能转换，请先启动后端');
+        return;
+      }
+      state.pendingFile = file;
+      state.pendingImage = '';
+      dom.previewImg.src = heicPlaceholder(file.name);
+      dom.fileName.textContent = file.name;
+      dom.fileMeta.textContent = `${(file.size / 1024 / 1024).toFixed(1)} MB · HEIC，服务端转换`;
+      dom.dropEmpty.hidden = true;
+      dom.dropPreview.hidden = false;
+      return;
+    }
+
     const dataUrl = await compressImage(file);
+    state.pendingFile = null;
     state.pendingImage = dataUrl;
     dom.previewImg.src = dataUrl;
     dom.fileName.textContent = file.name;
@@ -3093,12 +3268,38 @@ async function handleFile(file) {
     dom.dropPreview.hidden = false;
   } catch (error) {
     console.error(error);
-    showToast('照片处理失败，请换一张 JPG 或 PNG 试试');
+    showToast('照片处理失败，请换一张 JPG、PNG 或 HEIC 试试');
   } finally {
     if (strong && originalStrong) strong.textContent = originalStrong;
     dom.dropEmpty.style.opacity = '';
     dom.fileInput.value = '';
   }
+}
+
+function heicPlaceholder(name) {
+  const label = escapeHTML(name).slice(0, 24);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="675"><rect width="900" height="675" fill="#17130f"/><text x="450" y="320" text-anchor="middle" fill="#4d7cff" font-family="monospace" font-size="26" letter-spacing="6">HEIC</text><text x="450" y="365" text-anchor="middle" fill="#9b9386" font-family="monospace" font-size="16">${label}</text><text x="450" y="405" text-anchor="middle" fill="#6f685e" font-family="monospace" font-size="13">服务端将转换为 JPEG</text></svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function setMotionFile(file) {
+  if (!file) return;
+  if (!state.serverMode) {
+    showToast('实况视频需要连接 FastAPI 后才能保存');
+    return;
+  }
+  if (!isMotionFile(file)) {
+    showToast('实况视频只支持 MP4 / MOV');
+    return;
+  }
+  if (file.size > 60 * 1024 * 1024) {
+    showToast('实况视频超过 60MB，换一段短一点的吧');
+    return;
+  }
+  state.pendingMotion = file;
+  dom.motionName.textContent = `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB`;
+  dom.motionFile.hidden = false;
+  dom.motionInput.value = '';
 }
 
 function compressImage(file) {
@@ -3142,7 +3343,7 @@ async function submitUpload() {
   const feeling = dom.fieldFeeling.value.trim();
   const dateISO = dom.fieldDate.value || todayISO();
 
-  if (!state.pendingImage) {
+  if (!state.pendingImage && !state.pendingFile) {
     dom.dropzone.classList.add('is-invalid');
     dom.dropzone.scrollIntoView({ behavior: 'smooth', block: 'center' });
     showToast('先放一张照片进来，支线才有入口');
@@ -3210,7 +3411,7 @@ function dataUrlToBlob(dataUrl) {
 
 async function submitServerUpload({ title, place, feeling, dateISO }) {
   dom.publishButton.disabled = true;
-  $('.publish-button__label', dom.publishButton).textContent = '正在上传到共享档案…';
+  $('.publish-button__label', dom.publishButton).textContent = '正在提交审核…';
 
   try {
     const form = new FormData();
@@ -3220,7 +3421,11 @@ async function submitServerUpload({ title, place, feeling, dateISO }) {
     form.append('place', place || '杭电 · 未命名地点');
     form.append('feeling', feeling || '有些时刻来不及描述，只能先把它留下来。');
     form.append('category', CATEGORIES.includes(dom.fieldCategory.value) ? dom.fieldCategory.value : '校园');
-    form.append('image', dataUrlToBlob(state.pendingImage), 'hdu-daily.jpg');
+    const imageBlob = state.pendingFile || dataUrlToBlob(state.pendingImage);
+    form.append('image', imageBlob, state.pendingFile?.name || 'hdu-daily.jpg');
+    if (state.pendingMotion) {
+      form.append('motion', state.pendingMotion, state.pendingMotion.name || 'hdu-motion.mp4');
+    }
 
     const response = await apiRequest('/quests', { method: 'POST', body: form });
     const quest = await response.json();
@@ -3230,7 +3435,14 @@ async function submitServerUpload({ title, place, feeling, dateISO }) {
     closeUpload(true);
     await loadServerQuests();
     renderArchive();
-    showToast('这条杭电日常已加入共享档案', '打开', () => openDetail(quest.id), 5200);
+    showToast(
+      quest.status === 'pending'
+        ? '投稿已提交，等待管理员审核'
+        : '这条杭电日常已加入共享档案',
+      '打开',
+      () => openDetail(quest.id),
+      5200
+    );
   } catch (error) {
     console.error('Upload request failed:', error);
     dom.publishButton.disabled = false;

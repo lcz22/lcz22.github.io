@@ -18,6 +18,7 @@ os.environ["JWT_SECRET"] = "test-secret-that-is-long-enough-for-hs256"
 
 from fastapi.testclient import TestClient  # noqa: E402
 from PIL import Image  # noqa: E402
+from pillow_heif import from_pillow  # noqa: E402
 
 from app.main import app  # noqa: E402
 
@@ -26,6 +27,17 @@ def image_bytes() -> bytes:
     buffer = BytesIO()
     Image.new("RGB", (1400, 1000), (34, 65, 122)).save(buffer, format="JPEG", quality=88)
     return buffer.getvalue()
+
+
+def heic_bytes() -> bytes:
+    buffer = BytesIO()
+    from_pillow(Image.new("RGB", (1200, 900), (40, 90, 150))).save(buffer, quality=80)
+    return buffer.getvalue()
+
+
+def motion_bytes() -> bytes:
+    # Minimal MP4-like header accepted by the storage validator; no decoder is invoked.
+    return b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom" + b"\x00" * 128
 
 
 def auth(token: str) -> dict[str, str]:
@@ -41,7 +53,19 @@ def register(client: TestClient, username: str, email: str) -> dict:
     return response.json()
 
 
-def create_quest(client: TestClient, token: str, title: str = "在图书馆躲雨") -> dict:
+def create_quest(
+    client: TestClient,
+    token: str,
+    title: str = "在图书馆躲雨",
+    *,
+    image: bytes | None = None,
+    image_name: str = "library.jpg",
+    image_type: str = "image/jpeg",
+    motion: bool = False,
+) -> dict:
+    files = {"image": (image_name, image or image_bytes(), image_type)}
+    if motion:
+        files["motion"] = ("live.mov", motion_bytes(), "application/octet-stream")
     response = client.post(
         "/api/quests",
         headers=auth(token),
@@ -53,7 +77,7 @@ def create_quest(client: TestClient, token: str, title: str = "在图书馆躲�
             "feeling": "雨把窗户洗得很亮，我在书架之间站了很久。",
             "category": "校园",
         },
-        files={"image": ("library.jpg", image_bytes(), "image/jpeg")},
+        files=files,
     )
     assert response.status_code == 201, response.text
     return response.json()
@@ -179,6 +203,20 @@ def test_admin_management_and_moderation(client: TestClient) -> None:
 
     guest_list = client.get("/api/quests").json()
     assert all(item["id"] != quest_id for item in guest_list["items"])
+    owner_list = client.get("/api/quests", headers=auth(owner["access_token"]))
+    assert any(item["id"] == quest_id and item["status"] == "pending" for item in owner_list.json()["items"])
+
+    response = client.patch(
+        f"/api/admin/quests/{quest_id}/status",
+        json={"status": "rejected", "reason": "请补充更清楚的校园地点"},
+        headers=auth(admin["access_token"]),
+    )
+    assert response.status_code == 200
+    owner_detail = client.get(f"/api/quests/{quest_id}", headers=auth(owner["access_token"]))
+    assert owner_detail.status_code == 200
+    assert owner_detail.json()["review_reason"] == "请补充更清楚的校园地点"
+    assert client.get(f"/api/quests/{quest_id}").status_code == 404
+
     admin_list = client.get("/api/admin/quests", headers=auth(admin["access_token"]))
     assert admin_list.status_code == 200
     assert any(item["id"] == quest_id for item in admin_list.json()["items"])
@@ -201,6 +239,33 @@ def test_admin_management_and_moderation(client: TestClient) -> None:
         headers=auth(admin["access_token"]),
     )
     assert response.status_code == 400
+
+
+def test_heic_and_motion_upload(client: TestClient) -> None:
+    user = register(client, "erin", "erin@example.com")
+    quest = create_quest(
+        client,
+        user["access_token"],
+        title="实况里的晚霞",
+        image=heic_bytes(),
+        image_name="live.heic",
+        image_type="application/octet-stream",
+        motion=True,
+    )
+    assert quest["has_motion"] is True
+    assert quest["motion"].startswith("http://testserver/uploads/")
+    assert quest["image"].startswith("http://testserver/uploads/")
+
+    image_response = client.get(quest["image"].replace("http://testserver", ""))
+    assert image_response.status_code == 200
+    assert image_response.headers["content-type"] == "image/jpeg"
+
+    motion_response = client.get(quest["motion"].replace("http://testserver", ""))
+    assert motion_response.status_code == 200
+    assert motion_response.headers["content-type"] == "video/quicktime"
+
+    response = client.delete(f"/api/quests/{quest['id']}", headers=auth(user["access_token"]))
+    assert response.status_code == 204
 
 
 @pytest.fixture(scope="module")

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from datetime import timezone
 
-from sqlalchemy import func, literal, select
+from sqlalchemy import func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Quest, Rating, User
+from ..models import Quest, Rating, User, utcnow
 from .base import NewQuest, QuestRecord, QuestRepository, RatingSummary, StatsRecord
 
 
@@ -37,7 +37,11 @@ def _as_record(
         category=quest.category,
         image_url=quest.image_url,
         image_filename=quest.image_filename,
+        motion_url=quest.motion_url,
+        motion_filename=quest.motion_filename,
         status=quest.status,
+        review_reason=quest.review_reason,
+        reviewed_at=_ensure_utc(quest.reviewed_at),
         is_seed=bool(quest.is_seed),
         seed_rating_sum=float(quest.seed_rating_sum or 0),
         seed_rating_count=int(quest.seed_rating_count or 0),
@@ -91,7 +95,12 @@ class SqlAlchemyQuestRepository(QuestRepository):
             statement = statement.add_columns(literal(0).label("my_rating"))
 
         if public_only:
-            statement = statement.where(Quest.status == "approved")
+            if viewer_id:
+                statement = statement.where(
+                    or_(Quest.status == "approved", Quest.owner_id == viewer_id)
+                )
+            else:
+                statement = statement.where(Quest.status == "approved")
         return statement
 
     async def list_quests(
@@ -103,6 +112,10 @@ class SqlAlchemyQuestRepository(QuestRepository):
         viewer_id: str | None,
     ) -> tuple[list[QuestRecord], int]:
         count_stmt = select(func.count(Quest.id)).where(Quest.status == "approved")
+        if viewer_id:
+            count_stmt = select(func.count(Quest.id)).where(
+                or_(Quest.status == "approved", Quest.owner_id == viewer_id)
+            )
         if category:
             count_stmt = count_stmt.where(Quest.category == category)
         total = int((await self.session.execute(count_stmt)).scalar_one())
@@ -127,13 +140,18 @@ class SqlAlchemyQuestRepository(QuestRepository):
         limit: int,
         offset: int,
         admin_id: str,
+        status: str | None = None,
     ) -> tuple[list[QuestRecord], int]:
-        total = int(
-            (await self.session.execute(select(func.count(Quest.id)))).scalar_one()
-        )
+        count_stmt = select(func.count(Quest.id))
+        if status:
+            count_stmt = count_stmt.where(Quest.status == status)
+        total = int((await self.session.execute(count_stmt)).scalar_one())
+
+        stmt = self._statement(public_only=False, viewer_id=admin_id)
+        if status:
+            stmt = stmt.where(Quest.status == status)
         stmt = (
-            self._statement(public_only=False, viewer_id=admin_id)
-            .order_by(Quest.created_at.desc())
+            stmt.order_by(Quest.created_at.desc())
             .limit(limit)
             .offset(offset)
         )
@@ -170,6 +188,9 @@ class SqlAlchemyQuestRepository(QuestRepository):
             category=data.category,
             image_url=data.image_url,
             image_filename=data.image_filename,
+            motion_url=data.motion_url,
+            motion_filename=data.motion_filename,
+            motion_mime=data.motion_mime,
             status=data.status,
             is_seed=data.is_seed,
             seed_rating_sum=data.seed_rating_sum,
@@ -189,11 +210,19 @@ class SqlAlchemyQuestRepository(QuestRepository):
         await self.session.commit()
         return record
 
-    async def set_status(self, quest_id: str, status: str) -> bool:
+    async def set_status(
+        self,
+        quest_id: str,
+        status: str,
+        *,
+        reason: str | None = None,
+    ) -> bool:
         quest = await self.session.get(Quest, quest_id)
         if quest is None:
             return False
         quest.status = status
+        quest.review_reason = reason if status == "rejected" else None
+        quest.reviewed_at = utcnow() if status in {"approved", "rejected"} else None
         await self.session.commit()
         return True
 

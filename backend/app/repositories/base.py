@@ -24,10 +24,13 @@ class NewQuest:
     image_url: str
     image_filename: str
     owner_id: str | None = None
-    status: str = "approved"
+    status: str = "pending"
     is_seed: bool = False
     seed_rating_sum: float = 0.0
     seed_rating_count: int = 0
+    motion_url: str | None = None
+    motion_filename: str | None = None
+    motion_mime: str | None = None
 
 
 @dataclass(slots=True)
@@ -42,7 +45,11 @@ class QuestRecord:
     category: str
     image_url: str
     image_filename: str
+    motion_url: str | None
+    motion_filename: str | None
     status: str
+    review_reason: str | None
+    reviewed_at: datetime | None
     is_seed: bool
     seed_rating_sum: float
     seed_rating_count: int
@@ -104,6 +111,7 @@ class QuestRepository(ABC):
         limit: int,
         offset: int,
         admin_id: str,
+        status: str | None = None,
     ) -> tuple[list[QuestRecord], int]:
         raise NotImplementedError
 
@@ -126,7 +134,13 @@ class QuestRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def set_status(self, quest_id: str, status: str) -> bool:
+    async def set_status(
+        self,
+        quest_id: str,
+        status: str,
+        *,
+        reason: str | None = None,
+    ) -> bool:
         raise NotImplementedError
 
     @abstractmethod

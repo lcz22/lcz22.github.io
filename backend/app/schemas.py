@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 Category = Literal["校园", "下沙", "杭州", "相遇", "深夜"]
 Role = Literal["user", "admin"]
-QuestStatus = Literal["approved", "pending"]
+QuestStatus = Literal["approved", "pending", "rejected"]
 
 
 class RegisterIn(BaseModel):
@@ -72,6 +72,8 @@ class QuestOut(BaseModel):
     stamp: str
     category: Category
     image: str = Field(description="可直接放进 <img src> 的图片 URL")
+    motion: str | None = Field(default=None, description="实况照片的可选视频 URL")
+    has_motion: bool = False
     score: float | None
     votes: int
     my_rating: int
@@ -80,6 +82,7 @@ class QuestOut(BaseModel):
     is_owner: bool
     can_delete: bool
     status: str
+    review_reason: str | None = None
     created_at: datetime
 
 
@@ -92,6 +95,7 @@ class QuestList(BaseModel):
 
 class QuestStatusUpdate(BaseModel):
     status: QuestStatus
+    reason: str | None = Field(default=None, max_length=200)
 
 
 class StatsOut(BaseModel):

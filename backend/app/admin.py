@@ -73,8 +73,16 @@ async def list_all_quests(
     repository: QuestRepo,
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
+    status_filter: Annotated[str | None, Query(alias="status")] = None,
 ) -> QuestList:
-    items, total = await repository.list_all_quests(limit=limit, offset=offset, admin_id=admin.id)
+    if status_filter is not None and status_filter not in {"approved", "pending", "rejected"}:
+        raise HTTPException(status_code=400, detail="未知的审核状态")
+    items, total = await repository.list_all_quests(
+        limit=limit,
+        offset=offset,
+        admin_id=admin.id,
+        status=status_filter,
+    )
     return QuestList(
         items=[to_quest_out(item, admin) for item in items],
         total=total,
@@ -90,7 +98,7 @@ async def update_quest_status(
     admin: AdminUser,
     repository: QuestRepo,
 ) -> QuestOut:
-    changed = await repository.set_status(quest_id, payload.status)
+    changed = await repository.set_status(quest_id, payload.status, reason=payload.reason)
     if not changed:
         raise HTTPException(status_code=404, detail="没有找到这条支线")
     record = await repository.get_quest(quest_id, viewer_id=admin.id, include_unapproved=True)

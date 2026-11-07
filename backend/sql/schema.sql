@@ -30,13 +30,18 @@ CREATE TABLE IF NOT EXISTS quests (
     category          VARCHAR(20) NOT NULL,
     image_url         VARCHAR(500) NOT NULL,
     image_filename    VARCHAR(255) NOT NULL,
-    status            VARCHAR(20) NOT NULL DEFAULT 'approved',
+    motion_url        VARCHAR(500),
+    motion_filename   VARCHAR(255),
+    motion_mime       VARCHAR(80),
+    status            VARCHAR(20) NOT NULL DEFAULT 'pending',
+    review_reason     TEXT,
+    reviewed_at       TIMESTAMPTZ,
     is_seed           BOOLEAN NOT NULL DEFAULT FALSE,
     seed_rating_sum   DOUBLE PRECISION NOT NULL DEFAULT 0,
     seed_rating_count INTEGER NOT NULL DEFAULT 0,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT ck_quest_status CHECK (status IN ('approved', 'pending'))
+    CONSTRAINT ck_quest_status CHECK (status IN ('approved', 'pending', 'rejected'))
 );
 
 CREATE INDEX IF NOT EXISTS ix_quests_owner_id ON quests (owner_id);

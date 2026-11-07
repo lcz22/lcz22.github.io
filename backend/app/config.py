@@ -39,9 +39,10 @@ class Settings:
         )
     )
     max_upload_bytes: int = int(os.getenv("MAX_UPLOAD_BYTES", str(20 * 1024 * 1024)))
+    max_motion_bytes: int = int(os.getenv("MAX_MOTION_BYTES", str(60 * 1024 * 1024)))
     max_image_side: int = int(os.getenv("MAX_IMAGE_SIDE", "1800"))
     jpeg_quality: int = int(os.getenv("JPEG_QUALITY", "84"))
-    auto_approve: bool = os.getenv("AUTO_APPROVE", "true").lower() in {"1", "true", "yes", "on"}
+    auto_approve: bool = os.getenv("AUTO_APPROVE", "false").lower() in {"1", "true", "yes", "on"}
     allow_registration: bool = os.getenv("ALLOW_REGISTRATION", "true").lower() in {"1", "true", "yes", "on"}
     jwt_secret: str = os.getenv("JWT_SECRET", "local-dev-only-change-this-secret-before-deploy-2026")
     access_token_expire_minutes: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(60 * 24 * 7)))

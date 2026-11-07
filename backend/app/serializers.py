@@ -21,6 +21,8 @@ def to_quest_out(record: QuestRecord, user: User | None) -> QuestOut:
         stamp=record.stamp,
         category=record.category,  # validated at write time
         image=record.image_url,
+        motion=record.motion_url,
+        has_motion=bool(record.motion_url),
         score=round(record.average_score, 1) if record.average_score is not None else None,
         votes=record.total_rating_count,
         my_rating=record.my_rating,
@@ -29,5 +31,6 @@ def to_quest_out(record: QuestRecord, user: User | None) -> QuestOut:
         is_owner=is_owner,
         can_delete=(is_admin or is_owner) and not record.is_seed,
         status=record.status,
+        review_reason=record.review_reason if (is_admin or is_owner) else None,
         created_at=record.created_at,
     )

@@ -32,7 +32,12 @@ from .schemas import (
 )
 from .security import CurrentUser, OptionalUser
 from .serializers import to_quest_out
-from .storage import ImageStorage, InvalidImageError, get_storage
+from .storage import (
+    ImageStorage,
+    InvalidImageError,
+    InvalidMotionError,
+    get_storage,
+)
 
 router = APIRouter()
 
@@ -103,9 +108,13 @@ async def get_quest(
     record = await repository.get_quest(
         quest_id,
         viewer_id=user.id if user else None,
-        include_unapproved=bool(user and user.role == "admin"),
+        include_unapproved=True,
     )
     if record is None:
+        raise HTTPException(status_code=404, detail="没有找到这条支线")
+    if record.status != "approved" and not (
+        user and (user.role == "admin" or record.owner_id == user.id)
+    ):
         raise HTTPException(status_code=404, detail="没有找到这条支线")
     return to_quest_out(record, user)
 
@@ -127,6 +136,7 @@ async def create_quest(
     feeling: Annotated[str, Form(max_length=MAX_FEELING)] = "",
     category: Annotated[str, Form()] = "校园",
     image: UploadFile = File(...),
+    motion: UploadFile | None = File(None),
 ) -> QuestOut:
     clean_title = title.strip()
     if not clean_title:
@@ -139,6 +149,14 @@ async def create_quest(
     except InvalidImageError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    stored_motion = None
+    if motion is not None:
+        try:
+            stored_motion = await storage.save_motion(motion)
+        except InvalidMotionError as exc:
+            storage.delete(stored.filename)
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     data = NewQuest(
         title=clean_title,
         shot_date=shot_date,
@@ -149,6 +167,9 @@ async def create_quest(
         category=category,
         image_url=stored.url,
         image_filename=stored.filename,
+        motion_url=stored_motion.url if stored_motion else None,
+        motion_filename=stored_motion.filename if stored_motion else None,
+        motion_mime=stored_motion.mime if stored_motion else None,
         owner_id=user.id,
         status="approved" if settings.auto_approve else "pending",
     )
@@ -156,6 +177,8 @@ async def create_quest(
         record = await repository.create_quest(data)
     except Exception:
         storage.delete(stored.filename)
+        if stored_motion:
+            storage.delete(stored_motion.filename)
         raise
 
     if record.owner_username is None:
@@ -191,6 +214,7 @@ async def delete_quest(
     if deleted is None:
         raise HTTPException(status_code=404, detail="没有找到这条支线")
     storage.delete(deleted.image_filename)
+    storage.delete(deleted.motion_filename)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
