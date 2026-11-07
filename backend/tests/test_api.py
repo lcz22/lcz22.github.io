@@ -255,6 +255,38 @@ def test_admin_management_and_moderation(client: TestClient) -> None:
     response = client.delete(f"/api/quests/{quest_id}", headers=auth(admin["access_token"]))
     assert response.status_code == 204
 
+    # Disabled users' approved posts must disappear from public lists and detail.
+    henry = register(client, "henry", "henry@example.com")
+    henry_quest = create_quest(client, henry["access_token"], title="停用后的投稿")
+    response = client.patch(
+        f"/api/admin/users/{henry['user']['id']}",
+        json={"is_active": False},
+        headers=auth(admin["access_token"]),
+    )
+    assert response.status_code == 200
+    assert response.json()["is_active"] is False
+
+    public_list = client.get("/api/quests").json()
+    assert all(item["id"] != henry_quest["id"] for item in public_list["items"])
+    assert client.get(f"/api/quests/{henry_quest['id']}").status_code == 404
+    assert client.get("/api/users/henry").status_code == 404
+    assert client.get("/api/users/henry", headers=auth(admin["access_token"])).status_code == 200
+    admin_quests = client.get(
+        "/api/admin/quests",
+        params={"status": "approved"},
+        headers=auth(admin["access_token"]),
+    )
+    assert any(item["id"] == henry_quest["id"] for item in admin_quests.json()["items"])
+
+    response = client.patch(
+        f"/api/admin/users/{henry['user']['id']}",
+        json={"is_active": True},
+        headers=auth(admin["access_token"]),
+    )
+    assert response.status_code == 200
+    assert client.get(f"/api/quests/{henry_quest['id']}").status_code == 200
+    assert client.delete(f"/api/quests/{henry_quest['id']}", headers=auth(admin["access_token"])).status_code == 204
+
     # The last admin cannot demote themselves.
     response = client.patch(
         f"/api/admin/users/{admin['user']['id']}",

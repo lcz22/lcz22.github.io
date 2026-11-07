@@ -42,6 +42,8 @@ async def get_profile(
 
     is_self = bool(viewer and viewer.id == target.id)
     is_admin = bool(viewer and viewer.role == "admin")
+    if not target.is_active and not is_admin:
+        raise HTTPException(status_code=404, detail="没有找到这个用户")
     include_unpublished = is_self or is_admin
 
     items, total = await quests.list_user_quests(

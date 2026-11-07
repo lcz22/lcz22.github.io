@@ -923,6 +923,18 @@ function visibleQuests() {
   return allQuests().filter(quest => !state.hidden.has(quest.id));
 }
 
+function featuredQuests(limit = 10) {
+  const candidates = visibleQuests().filter(quest => !quest.fromApi || quest.status === 'approved');
+  return [...candidates]
+    .sort((left, right) => {
+      const a = getRating(left);
+      const b = getRating(right);
+      if (b.avg !== a.avg) return b.avg - a.avg;
+      return b.votes - a.votes;
+    })
+    .slice(0, limit);
+}
+
 function findQuest(id) {
   return allQuests().find(quest => quest.id === id) || null;
 }
@@ -1307,7 +1319,7 @@ function tileMarkup(quest) {
 }
 
 function buildGrid() {
-  const list = visibleQuests();
+  const list = featuredQuests(10);
   const plane = dom.gmPlane;
   plane.innerHTML = '';
 

@@ -138,6 +138,10 @@ class QuestRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def is_owner_active(self, owner_id: str | None) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
     async def create_quest(self, data: NewQuest) -> QuestRecord:
         raise NotImplementedError
 

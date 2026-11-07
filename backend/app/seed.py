@@ -39,10 +39,12 @@ async def seed() -> None:
                 email="archive@example.com",
                 password_hash="!",
                 role="user",
-                is_active=False,
+                is_active=True,
             )
             session.add(archive)
             await session.flush()
+        elif not archive.is_active:
+            archive.is_active = True
 
         existing_quests = {
             quest.id: quest

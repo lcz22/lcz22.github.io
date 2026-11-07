@@ -112,10 +112,13 @@ async def get_quest(
     )
     if record is None:
         raise HTTPException(status_code=404, detail="没有找到这条支线")
-    if record.status != "approved" and not (
-        user and (user.role == "admin" or record.owner_id == user.id)
-    ):
-        raise HTTPException(status_code=404, detail="没有找到这条支线")
+    is_admin = bool(user and user.role == "admin")
+    is_owner = bool(user and record.owner_id == user.id)
+    if not is_admin and not is_owner:
+        if record.status != "approved":
+            raise HTTPException(status_code=404, detail="没有找到这条支线")
+        if not record.is_seed and not await repository.is_owner_active(record.owner_id):
+            raise HTTPException(status_code=404, detail="没有找到这条支线")
     return to_quest_out(record, user)
 
 

@@ -70,6 +70,14 @@ class SqlAlchemyQuestRepository(QuestRepository):
             .subquery()
         )
 
+    @staticmethod
+    def _active_owner_condition():
+        return or_(
+            Quest.is_seed.is_(True),
+            Quest.owner_id.is_(None),
+            User.is_active.is_(True),
+        )
+
     def _statement(self, *, public_only: bool, viewer_id: str | None):
         stats = self._rating_stats_subquery()
         statement = (
@@ -101,6 +109,7 @@ class SqlAlchemyQuestRepository(QuestRepository):
                 )
             else:
                 statement = statement.where(Quest.status == "approved")
+            statement = statement.where(self._active_owner_condition())
         return statement
 
     async def list_quests(
@@ -111,10 +120,19 @@ class SqlAlchemyQuestRepository(QuestRepository):
         offset: int,
         viewer_id: str | None,
     ) -> tuple[list[QuestRecord], int]:
-        count_stmt = select(func.count(Quest.id)).where(Quest.status == "approved")
+        count_stmt = (
+            select(func.count(Quest.id))
+            .outerjoin(User, User.id == Quest.owner_id)
+            .where(Quest.status == "approved", self._active_owner_condition())
+        )
         if viewer_id:
-            count_stmt = select(func.count(Quest.id)).where(
-                or_(Quest.status == "approved", Quest.owner_id == viewer_id)
+            count_stmt = (
+                select(func.count(Quest.id))
+                .outerjoin(User, User.id == Quest.owner_id)
+                .where(
+                    or_(Quest.status == "approved", Quest.owner_id == viewer_id),
+                    self._active_owner_condition(),
+                )
             )
         if category:
             count_stmt = count_stmt.where(Quest.category == category)
@@ -188,6 +206,14 @@ class SqlAlchemyQuestRepository(QuestRepository):
             _as_record(row[0], row[1], row[2], row[3], row[4])
             for row in rows
         ], total
+
+    async def is_owner_active(self, owner_id: str | None) -> bool:
+        if not owner_id:
+            return True
+        result = await self.session.execute(
+            select(User.is_active).where(User.id == owner_id)
+        )
+        return bool(result.scalar_one_or_none())
 
     async def get_quest(
         self,
@@ -274,6 +300,8 @@ class SqlAlchemyQuestRepository(QuestRepository):
         quest = await self.session.get(Quest, quest_id)
         if quest is None or quest.status != "approved":
             return None
+        if not quest.is_seed and not await self.is_owner_active(quest.owner_id):
+            return None
 
         existing = (
             await self.session.execute(
@@ -315,7 +343,9 @@ class SqlAlchemyQuestRepository(QuestRepository):
         total_quests = int(
             (
                 await self.session.execute(
-                    select(func.count(Quest.id)).where(Quest.status == "approved")
+                    select(func.count(Quest.id))
+                    .outerjoin(User, User.id == Quest.owner_id)
+                    .where(Quest.status == "approved", self._active_owner_condition())
                 )
             ).scalar_one()
         )
@@ -327,7 +357,8 @@ class SqlAlchemyQuestRepository(QuestRepository):
                     func.count(Rating.id),
                 )
                 .join(Quest, Rating.quest_id == Quest.id)
-                .where(Quest.status == "approved")
+                .outerjoin(User, User.id == Quest.owner_id)
+                .where(Quest.status == "approved", self._active_owner_condition())
             )
         ).one()
 
@@ -336,14 +367,17 @@ class SqlAlchemyQuestRepository(QuestRepository):
                 select(
                     func.coalesce(func.sum(Quest.seed_rating_sum), 0),
                     func.coalesce(func.sum(Quest.seed_rating_count), 0),
-                ).where(Quest.status == "approved")
+                )
+                .outerjoin(User, User.id == Quest.owner_id)
+                .where(Quest.status == "approved", self._active_owner_condition())
             )
         ).one()
 
         category_rows = (
             await self.session.execute(
                 select(Quest.category, func.count(Quest.id))
-                .where(Quest.status == "approved")
+                .outerjoin(User, User.id == Quest.owner_id)
+                .where(Quest.status == "approved", self._active_owner_condition())
                 .group_by(Quest.category)
             )
         ).all()
