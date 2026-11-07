@@ -69,12 +69,6 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-body.is-locked .gm-track,
-body.is-locked .marquee__track,
-body.is-locked .orbit-text {
-  animation-play-state: paused;
-}
-
 .no-script {
   position: fixed;
   z-index: 5000;
