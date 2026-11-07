@@ -7,8 +7,8 @@
   <meta name="description" content="杭电支线成员主页：查看 TA 分享的杭电日常。">
   <title>成员主页 · 杭电支线</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=20261108-final">
-  <link rel="stylesheet" href="profile.css?v=20261108-final">
+  <link rel="stylesheet" href="styles.css?v=20261108-final3">
+  <link rel="stylesheet" href="profile.css?v=20261108-final3">
 </head>
 <body class="profile-page">
   <header class="profile-header">
@@ -63,16 +63,28 @@
     </section>
   </main>
 
-  <div class="shredder" id="shredder" hidden>
-    <div class="shredder__drop" id="shredderDrop">
-      <span class="shredder__icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V4.8h6V7M6.5 7l.8 12h9.4l.8-12M10 10.5v5M14 10.5v5" stroke="currentColor" stroke-linecap="round"/></svg>
-      </span>
-      <span>
-        <strong>拖到这里粉碎</strong>
-        <small>只删除自己的投稿</small>
-      </span>
-    </div>
+  <div class="profile-lightbox" id="profileLightbox" hidden>
+    <div class="profile-lightbox__scrim" data-close-lightbox></div>
+    <section class="profile-lightbox__panel" role="dialog" aria-modal="true" aria-labelledby="lightboxTitle">
+      <header class="profile-lightbox__head">
+        <div>
+          <p class="profile-kicker">OWNER MODE</p>
+          <h2 id="lightboxTitle">投稿预览</h2>
+        </div>
+        <div class="profile-lightbox__tools">
+          <a class="profile-lightbox__detail" id="lightboxDetail" href="#">打开详情 ↗</a>
+          <button class="profile-lightbox__close" id="lightboxClose" type="button" aria-label="关闭">×</button>
+        </div>
+      </header>
+      <div class="profile-lightbox__frame" id="lightboxFrame">
+        <img id="lightboxImage" src="" alt="" draggable="false">
+        <button class="scissors" id="lightboxScissors" type="button" aria-label="拖到这里删除投稿">
+          <span class="scissors__icon" aria-hidden="true">✂</span>
+          <span class="scissors__label">拖到这里</span>
+        </button>
+      </div>
+      <p class="profile-lightbox__hint">按住图片，缩小后拖到右下角剪刀处，松手才会删除。</p>
+    </section>
   </div>
 
   <div class="profile-state" id="profileState" role="status">
@@ -89,6 +101,6 @@
   <script>
     window.HDU_API_BASE_URL = window.HDU_API_BASE_URL || '';
   </script>
-  <script src="profile.js?v=20261108-final"></script>
+  <script src="profile.js?v=20261108-final3"></script>
 </body>
 </html>

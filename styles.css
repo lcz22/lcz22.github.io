@@ -4898,13 +4898,13 @@ body.is-ready .intro {
 
 .detail-visual {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
 }
 
 .album-stack {
   position: absolute;
-  inset: clamp(12px, 1.4vw, 20px);
+  inset: 0;
   z-index: 1;
   pointer-events: none;
 }
@@ -4926,17 +4926,21 @@ body.is-ready .intro {
 }
 
 .flip-stage {
-  position: absolute;
-  inset: clamp(12px, 1.4vw, 20px);
+  position: relative;
   z-index: 2;
-  width: auto;
-  height: auto;
+  flex: none;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   perspective: 1600px;
+  transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1), height 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .flip-card {
   position: absolute;
   inset: 0;
+  z-index: 2;
 }
 
 .flip-card__inner {
@@ -5463,4 +5467,43 @@ body.is-ready .intro {
     border-left: 0;
     border-top: 1px solid var(--line);
   }
+}
+
+.upload-motion-chip {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100% - 24px);
+  padding: 7px 10px;
+  border: 1px solid rgba(77, 124, 255, 0.45);
+  border-radius: 999px;
+  background: rgba(9, 8, 7, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.upload-motion-chip[hidden] {
+  display: none !important;
+}
+
+.upload-motion-chip span {
+  flex: none;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+}
+
+.upload-motion-chip strong {
+  overflow: hidden;
+  color: var(--paper-soft);
+  font-family: var(--font-mono);
+  font-size: 7px;
+  font-weight: 400;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }

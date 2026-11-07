@@ -271,6 +271,8 @@ MOTION_CRF=24
 
 `FRONTEND_BASE_URL` 用于种子数据的图片 URL；`PUBLIC_BASE_URL` 用于新上传图片的完整 URL。
 
+本地调试建议把 `PUBLIC_BASE_URL` 设为 `http://127.0.0.1:8000`，让上传图片直接走本机 API，避免 Cloudflare 临时隧道偶发加载失败；部署时再改成正式的 API 域名。
+
 3. 建表并导入种子：
 
 ```powershell

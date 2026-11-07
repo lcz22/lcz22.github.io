@@ -18,8 +18,13 @@ const profileDom = {
   grid: document.getElementById('profileGrid'),
   empty: document.getElementById('profileEmpty'),
   title: document.getElementById('profileSubmissionsTitle'),
-  shredder: document.getElementById('shredder'),
-  shredderDrop: document.getElementById('shredderDrop'),
+  lightbox: document.getElementById('profileLightbox'),
+  lightboxFrame: document.getElementById('lightboxFrame'),
+  lightboxImage: document.getElementById('lightboxImage'),
+  lightboxTitle: document.getElementById('lightboxTitle'),
+  lightboxClose: document.getElementById('lightboxClose'),
+  lightboxDetail: document.getElementById('lightboxDetail'),
+  lightboxScissors: document.getElementById('lightboxScissors'),
   state: document.getElementById('profileState'),
   stateText: document.getElementById('profileStateText'),
   stateBack: document.getElementById('profileStateBack')
@@ -146,7 +151,7 @@ function renderCard(quest, canDelete) {
       ? `<span class="profile-card__motion">图集 ${quest.image_count}</span>`
       : '';
   return `<a class="profile-card" href="index.html?quest=${encodeURIComponent(quest.id)}"
-    data-quest-id="${escapeHTML(quest.id)}" draggable="${canDelete ? 'true' : 'false'}">
+    data-quest-id="${escapeHTML(quest.id)}" draggable="false">
     <div class="profile-card__media">
       <img src="${escapeHTML(quest.image)}" alt="${escapeHTML(quest.title)}" loading="lazy" decoding="async" draggable="false">
       <span class="profile-card__shade" aria-hidden="true"></span>
@@ -162,6 +167,7 @@ function renderCard(quest, canDelete) {
 }
 
 function renderProfile(profile, me) {
+  currentProfile = profile;
   setAvatar(profile.username);
   profileDom.name.textContent = profile.username;
   profileDom.role.textContent = profile.role === 'admin' ? '管理员' : '普通成员';
@@ -180,7 +186,6 @@ function renderProfile(profile, me) {
     : profile.stats.average_score.toFixed(1);
   profileDom.count.textContent = `${profile.quests.length} 条`;
   profileDom.grid.innerHTML = profile.quests.map(quest => renderCard(quest, profile.is_self)).join('');
-  profileDom.shredder.hidden = !profile.is_self;
 
   if (!profile.quests.length) {
     renderEmpty(profile.is_self
@@ -285,62 +290,143 @@ function shredImage(image) {
   window.setTimeout(() => layer.remove(), 1400);
 }
 
-let draggingCard = null;
+let currentProfile = null;
+let currentLightboxQuest = null;
+let lightboxDrag = null;
 
-async function shredCard(card) {
-  const questId = card?.dataset.questId;
-  const image = card?.querySelector('img');
-  if (!questId || !image) return;
+function openLightbox(questId) {
+  const quest = currentProfile?.quests.find(item => item.id === questId);
+  if (!quest) return;
+  currentLightboxQuest = quest;
+  profileDom.lightboxTitle.textContent = quest.title;
+  profileDom.lightboxImage.src = quest.image;
+  profileDom.lightboxImage.alt = quest.title;
+  profileDom.lightboxDetail.href = `index.html?quest=${encodeURIComponent(quest.id)}`;
+  profileDom.lightbox.hidden = false;
+  profileDom.lightboxScissors.classList.remove('is-over', 'is-fired');
+}
 
-  profileDom.shredder.classList.remove('is-armed', 'is-over');
+function closeLightbox() {
+  if (lightboxDrag) {
+    lightboxDrag.clone?.remove();
+    lightboxDrag.image.style.opacity = '';
+    lightboxDrag = null;
+  }
+  removeLightboxDragListeners();
+  profileDom.lightbox.hidden = true;
+  currentLightboxQuest = null;
+}
+
+function removeLightboxDragListeners() {
+  document.removeEventListener('pointermove', onLightboxPointerMove);
+  document.removeEventListener('pointerup', onLightboxPointerUp);
+  document.removeEventListener('pointercancel', onLightboxPointerCancel);
+}
+
+function onLightboxPointerMove(event) {
+  if (!lightboxDrag) return;
+  const { clone, startX, startY, rect } = lightboxDrag;
+  clone.style.left = `${rect.left + event.clientX - startX}px`;
+  clone.style.top = `${rect.top + event.clientY - startY}px`;
+  const over = document.elementFromPoint(event.clientX, event.clientY)
+    ?.closest('#lightboxScissors');
+  profileDom.lightboxScissors.classList.toggle('is-over', Boolean(over));
+}
+
+function finishLightboxDrag(drop) {
+  if (!lightboxDrag) return;
+  const drag = lightboxDrag;
+  lightboxDrag = null;
+  removeLightboxDragListeners();
+  profileDom.lightboxScissors.classList.remove('is-over');
+  if (drop) {
+    profileDom.lightboxScissors.classList.add('is-fired');
+    drag.clone.remove();
+    deleteLightboxQuest(drag.quest, drag.image);
+    return;
+  }
+  drag.clone.style.transition = 'left 0.28s ease, top 0.28s ease, transform 0.28s ease, opacity 0.28s ease';
+  drag.clone.style.left = `${drag.rect.left}px`;
+  drag.clone.style.top = `${drag.rect.top}px`;
+  drag.clone.style.transform = 'scale(1)';
+  drag.clone.style.opacity = '1';
+  window.setTimeout(() => {
+    drag.clone.remove();
+    drag.image.style.opacity = '';
+  }, 300);
+}
+
+function onLightboxPointerUp(event) {
+  if (!lightboxDrag) return;
+  const over = document.elementFromPoint(event.clientX, event.clientY)
+    ?.closest('#lightboxScissors');
+  finishLightboxDrag(Boolean(over));
+}
+
+function onLightboxPointerCancel() {
+  finishLightboxDrag(false);
+}
+
+function startLightboxDrag(event) {
+  if (!currentProfile?.is_self || !currentLightboxQuest || event.button !== 0) return;
+  event.preventDefault();
+  const image = profileDom.lightboxImage;
+  const rect = image.getBoundingClientRect();
+  const clone = image.cloneNode(true);
+  clone.removeAttribute('id');
+  clone.className = 'lightbox-drag';
+  clone.style.left = `${rect.left}px`;
+  clone.style.top = `${rect.top}px`;
+  clone.style.width = `${rect.width}px`;
+  clone.style.height = `${rect.height}px`;
+  clone.style.transform = 'scale(0.78)';
+  document.body.append(clone);
+  image.style.opacity = '0.24';
+  lightboxDrag = {
+    clone,
+    image,
+    quest: currentLightboxQuest,
+    rect,
+    startX: event.clientX,
+    startY: event.clientY
+  };
+  document.addEventListener('pointermove', onLightboxPointerMove);
+  document.addEventListener('pointerup', onLightboxPointerUp, { once: true });
+  document.addEventListener('pointercancel', onLightboxPointerCancel, { once: true });
+}
+
+async function deleteLightboxQuest(quest, image) {
   shredImage(image);
-  card.classList.add('is-shredding');
   try {
-    await deleteQuest(questId);
+    await deleteQuest(quest.id);
+    closeLightbox();
     await load();
     showToast('投稿已粉碎并从档案删除');
   } catch (error) {
-    card.classList.remove('is-shredding');
+    image.style.opacity = '';
     showToast(error.message || '删除失败，请稍后再试');
-  } finally {
-    draggingCard = null;
   }
 }
 
-function setupShredder() {
-  profileDom.grid.addEventListener('dragstart', event => {
-    const card = event.target.closest('.profile-card[draggable="true"]');
-    if (!card) return;
-    draggingCard = card;
-    event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData('text/plain', card.dataset.questId);
-    profileDom.shredder.classList.add('is-armed');
-  });
-
-  profileDom.grid.addEventListener('dragend', () => {
-    draggingCard = null;
-    profileDom.shredder.classList.remove('is-armed', 'is-over');
-  });
-
-  profileDom.shredderDrop.addEventListener('dragover', event => {
-    if (!draggingCard) return;
+function setupLightbox() {
+  profileDom.grid.addEventListener('click', event => {
+    const card = event.target.closest('.profile-card');
+    if (!card || !currentProfile?.is_self) return;
     event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-    profileDom.shredder.classList.add('is-over');
+    openLightbox(card.dataset.questId);
   });
 
-  profileDom.shredderDrop.addEventListener('dragleave', () => {
-    profileDom.shredder.classList.remove('is-over');
+  profileDom.lightboxClose.addEventListener('click', closeLightbox);
+  profileDom.lightboxScissors.addEventListener('click', event => event.preventDefault());
+  document.querySelectorAll('[data-close-lightbox]').forEach(element => {
+    element.addEventListener('click', closeLightbox);
   });
-
-  profileDom.shredderDrop.addEventListener('drop', event => {
-    event.preventDefault();
-    const card = draggingCard || profileDom.grid.querySelector(
-      `.profile-card[data-quest-id="${CSS.escape(event.dataTransfer.getData('text/plain'))}"]`
-    );
-    if (card) shredCard(card);
-  });
+  profileDom.lightboxImage.addEventListener('pointerdown', startLightboxDrag);
 }
 
-setupShredder();
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !profileDom.lightbox.hidden) closeLightbox();
+});
+
+setupLightbox();
 load();

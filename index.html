@@ -8,7 +8,7 @@
   <title>杭电支线 · HDU SIDE QUESTS</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="assets/fonts/noto-serif-sc-subset.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261108-final">
+  <link rel="stylesheet" href="styles.css?v=20261108-final3">
 </head>
 <body>
   <div class="grain" aria-hidden="true"></div>
@@ -306,8 +306,8 @@
 
       <div class="detail-grid">
         <figure class="detail-visual">
-          <div class="album-stack" id="albumStack" aria-hidden="true"></div>
           <div class="flip-stage">
+            <div class="album-stack" id="albumStack" aria-hidden="true"></div>
             <div class="flip-card" id="flipCard">
               <div class="flip-card__inner" id="flipInner">
                 <div class="flip-card__face flip-card__front">
@@ -471,12 +471,12 @@
         <div class="upload-layout">
           <div class="upload-media">
             <label class="dropzone" id="dropzone" for="fileInput" tabindex="0">
-              <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/bmp,image/heic,image/heif,.jpg,.jpeg,.jfif,.heic,.heif" multiple hidden>
+              <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/bmp,image/heic,image/heif,.jpg,.jpeg,.jfif,.heic,.heif,video/mp4,video/quicktime,.mp4,.mov" multiple hidden>
 
               <div class="dropzone__empty" id="dropEmpty">
                 <span class="dropzone__plus" aria-hidden="true">+</span>
                 <strong>把照片拖进来</strong>
-                <p>或点击选择 · 最多 9 张 · JPG / PNG / HEIC<br>单张不超过 20MB</p>
+                <p>或点击选择 · 照片最多 9 张，可附带 1 段实况<br>JPG / PNG / HEIC / MP4 / MOV</p>
                 <span class="dropzone__hint">多张照片会收成一份图集</span>
               </div>
 
@@ -498,25 +498,17 @@
                 <button class="dropzone__replace" id="albumClear" type="button">重新选择</button>
               </div>
 
+              <div class="upload-motion-chip" id="uploadMotionChip" hidden>
+                <span>实况</span>
+                <strong id="uploadMotionName"></strong>
+              </div>
+
               <span class="dropzone__corners" aria-hidden="true"></span>
             </label>
 
-            <div class="motion-field">
-              <div class="motion-field__copy">
-                <span class="field__label">实况 / 动态 <em>可选</em></span>
-                <p>如果这是 iPhone 实况照片，可以再选一段 MOV / MP4；服务端会转码为浏览器兼容的 H.264 MP4。</p>
-              </div>
-              <input id="motionInput" type="file" accept="video/mp4,video/quicktime,.mp4,.mov" hidden>
-              <button class="motion-field__pick" id="motionPick" type="button">选择视频</button>
-              <div class="motion-field__file" id="motionFile" hidden>
-                <span id="motionName"></span>
-                <button id="motionRemove" type="button" aria-label="移除实况视频">×</button>
-              </div>
-            </div>
-
             <p class="upload-tip">
               <span aria-hidden="true">✳</span>
-              照片会压缩后上传；HEIC 由服务端转换，实况视频会转为 H.264 MP4，最长 15 秒。
+              照片和实况可以一起选；每张照片单独识别 / 解码。HEIC 由服务端转换，实况视频会转为 H.264 MP4，最长 15 秒。
             </p>
           </div>
 
@@ -709,6 +701,6 @@
     // 后端部署到 ECS 后，把这里改成 https://api.你的域名/api。
     window.HDU_API_BASE_URL = window.HDU_API_BASE_URL || '';
   </script>
-  <script src="app.js?v=20261108-final"></script>
+  <script src="app.js?v=20261108-final3"></script>
 </body>
 </html>

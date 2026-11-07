@@ -1085,6 +1085,8 @@ const dom = {
   slingArc: $('#slingArc'),
   detailLayer: $('#detailLayer'),
   detailClose: $('#detailClose'),
+  detailVisual: $('.detail-visual'),
+  flipStage: $('.flip-stage'),
   detailIndex: $('#detailIndex'),
   detailCategory: $('#detailCategory'),
   detailImage: $('#detailImage'),
@@ -1140,11 +1142,8 @@ const dom = {
   uploadNo: $('#uploadNo'),
   uploadForm: $('#uploadForm'),
   fileInput: $('#fileInput'),
-  motionInput: $('#motionInput'),
-  motionPick: $('#motionPick'),
-  motionFile: $('#motionFile'),
-  motionName: $('#motionName'),
-  motionRemove: $('#motionRemove'),
+  uploadMotionChip: $('#uploadMotionChip'),
+  uploadMotionName: $('#uploadMotionName'),
   dropzone: $('#dropzone'),
   dropEmpty: $('#dropEmpty'),
   dropPreview: $('#dropPreview'),
@@ -2294,6 +2293,39 @@ function renderAlbum(quest) {
       dom.albumStack.append(ghost);
     }
   }
+
+  const applyFit = () => requestAnimationFrame(fitDetailFrame);
+  if (dom.detailImage.complete && dom.detailImage.naturalWidth) {
+    applyFit();
+  } else {
+    dom.detailImage.addEventListener('load', applyFit, { once: true });
+  }
+  dom.detailImage.decode?.().then(applyFit).catch(() => {});
+}
+
+function fitDetailFrame() {
+  if (!detailOpen || !dom.detailVisual || !dom.flipStage || !dom.detailImage) return;
+  const naturalWidth = dom.detailImage.naturalWidth;
+  const naturalHeight = dom.detailImage.naturalHeight;
+  if (!naturalWidth || !naturalHeight) return;
+
+  const visual = dom.detailVisual;
+  const style = getComputedStyle(visual);
+  const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+  const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+  const availableWidth = Math.max(120, visual.clientWidth - padX);
+  const availableHeight = Math.max(120, visual.clientHeight - padY);
+  const ratio = naturalWidth / naturalHeight;
+
+  let width = availableWidth;
+  let height = width / ratio;
+  if (height > availableHeight) {
+    height = availableHeight;
+    width = height * ratio;
+  }
+
+  dom.flipStage.style.width = `${Math.round(width)}px`;
+  dom.flipStage.style.height = `${Math.round(height)}px`;
 }
 
 function changeAlbum(direction) {
@@ -2304,6 +2336,7 @@ function changeAlbum(direction) {
   state.albumIndex = (state.albumIndex + direction + images.length) % images.length;
   setDetailFlip(false);
   renderAlbum(quest);
+  window.setTimeout(fitDetailFrame, 80);
   dom.detailImage.animate(
     [
       { opacity: 0, transform: 'scale(0.985)' },
@@ -2404,6 +2437,7 @@ function openDetail(id, sourceImage = null, albumIndex = 0) {
   dom.detailLayer.setAttribute('aria-hidden', 'false');
   dom.body.classList.add('is-locked');
   setQuestParam(id);
+  requestAnimationFrame(fitDetailFrame);
 
   if (canFly) {
     runPhotoFlight(sourceImage, sourceFrame, sourceRect);
@@ -2586,6 +2620,9 @@ function setupReflectiveCard() {
 }
 
 function setupDetail() {
+  window.addEventListener('resize', () => {
+    if (detailOpen) requestAnimationFrame(fitDetailFrame);
+  });
   dom.detailClose.addEventListener('click', () => closeDetail());
   $$('[data-close-detail]').forEach(element => {
     element.addEventListener('click', () => closeDetail());
@@ -2612,6 +2649,7 @@ function setupDetail() {
   });
   dom.detailImage.addEventListener('load', () => {
     if (!state.flight && !state.flightPending) dom.detailImage.style.opacity = '';
+    requestAnimationFrame(fitDetailFrame);
   });
 
   dom.shareButton.addEventListener('click', async () => {
@@ -3392,9 +3430,8 @@ function resetUploadForm() {
   categoryPicker?.setValue('校园');
   datePicker?.setDate(todayISO());
   dom.fileInput.value = '';
-  dom.motionInput.value = '';
-  dom.motionFile.hidden = true;
-  dom.motionName.textContent = '';
+  dom.uploadMotionChip.hidden = true;
+  dom.uploadMotionName.textContent = '';
   dom.dropEmpty.hidden = false;
   dom.dropPreview.hidden = true;
   dom.albumPreview.hidden = true;
@@ -3422,18 +3459,6 @@ function setupUpload() {
     event.preventDefault();
     event.stopPropagation();
     clearUploadSelection();
-  });
-
-  dom.motionPick.addEventListener('click', () => dom.motionInput.click());
-  dom.motionInput.addEventListener('change', event => {
-    const file = event.target.files?.[0];
-    if (file) setMotionFile(file);
-  });
-  dom.motionRemove.addEventListener('click', () => {
-    state.pendingMotion = null;
-    dom.motionFile.hidden = true;
-    dom.motionName.textContent = '';
-    dom.motionInput.value = '';
   });
 
   dom.dropzone.addEventListener('click', event => {
@@ -3532,12 +3557,44 @@ async function handleFiles(fileList) {
   dom.dropzone.classList.remove('is-invalid');
   const strong = $('strong', dom.dropEmpty);
   const originalStrong = strong?.textContent;
-  if (strong) strong.textContent = files.length > 1 ? `正在处理 ${files.length} 张照片…` : '正在处理这张照片…';
+  if (strong) strong.textContent = files.length > 1 ? `正在识别 ${files.length} 个文件…` : '正在识别文件…';
   dom.dropEmpty.style.opacity = '0.55';
 
-  const prepared = [];
+  const imageFiles = [];
+  let motionFile = null;
   const errors = [];
-  for (const file of files.slice(0, 9)) {
+  let overflow = false;
+
+  files.forEach(file => {
+    if (isMotionFile(file)) {
+      if (motionFile) {
+        errors.push('一次只支持一段实况视频');
+        return;
+      }
+      if (!state.serverMode) {
+        errors.push('实况视频需要连接 FastAPI 后才能保存');
+        return;
+      }
+      if (file.size > 60 * 1024 * 1024) {
+        errors.push('实况视频超过 60MB，换一段短一点的吧');
+        return;
+      }
+      motionFile = file;
+      return;
+    }
+    if (!isImageFile(file)) {
+      errors.push(`${file.name}：只支持图片或 MP4 / MOV 实况`);
+      return;
+    }
+    if (imageFiles.length >= 9) {
+      overflow = true;
+      return;
+    }
+    imageFiles.push(file);
+  });
+
+  const prepared = [];
+  for (const file of imageFiles) {
     try {
       prepared.push(await prepareImage(file));
     } catch (error) {
@@ -3547,11 +3604,15 @@ async function handleFiles(fileList) {
 
   if (prepared.length) {
     state.pendingImages = prepared;
+    state.pendingMotion = motionFile;
     state.pendingImage = prepared.length === 1 ? prepared[0].dataUrl : '';
     state.pendingFile = prepared.length === 1 && !prepared[0].dataUrl ? prepared[0].file : null;
     renderUploadSelection();
-    if (files.length > 9) showToast('一次最多收录 9 张照片，超出的已忽略');
+    if (overflow) showToast('一次最多收录 9 张照片，超出的已忽略');
     if (errors.length) showToast(errors[0]);
+  } else if (motionFile) {
+    dom.dropzone.classList.add('is-invalid');
+    showToast('实况视频需要同时选择至少一张照片');
   } else if (errors.length) {
     dom.dropzone.classList.add('is-invalid');
     showToast(errors[0]);
@@ -3565,6 +3626,10 @@ async function handleFiles(fileList) {
 function renderUploadSelection() {
   const items = state.pendingImages;
   dom.dropEmpty.hidden = items.length > 0;
+  dom.uploadMotionChip.hidden = !state.pendingMotion;
+  if (state.pendingMotion) {
+    dom.uploadMotionName.textContent = `${state.pendingMotion.name} · ${(state.pendingMotion.size / 1024 / 1024).toFixed(1)} MB`;
+  }
 
   if (!items.length) {
     dom.dropPreview.hidden = true;
@@ -3601,9 +3666,12 @@ function clearUploadSelection() {
   state.pendingImages = [];
   state.pendingImage = '';
   state.pendingFile = null;
+  state.pendingMotion = null;
   dom.fileInput.value = '';
   dom.dropPreview.hidden = true;
   dom.albumPreview.hidden = true;
+  dom.uploadMotionChip.hidden = true;
+  dom.uploadMotionName.textContent = '';
   dom.previewImg.removeAttribute('src');
   dom.uploadAlbumStack.innerHTML = '';
   dom.dropEmpty.hidden = false;
@@ -3623,26 +3691,6 @@ function serverImagePlaceholder(file) {
   const type = (file.type || file.name.split('.').pop() || 'IMAGE').toUpperCase().slice(0, 12);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="675"><rect width="900" height="675" fill="#17130f"/><text x="450" y="318" text-anchor="middle" fill="#4d7cff" font-family="monospace" font-size="28" letter-spacing="4">${type}</text><text x="450" y="362" text-anchor="middle" fill="#9b9386" font-family="monospace" font-size="16">${name}</text><text x="450" y="403" text-anchor="middle" fill="#6f685e" font-family="monospace" font-size="13">浏览器无法预览，将由服务端压缩</text></svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
-
-function setMotionFile(file) {
-  if (!file) return;
-  if (!state.serverMode) {
-    showToast('实况视频需要连接 FastAPI 后才能保存');
-    return;
-  }
-  if (!isMotionFile(file)) {
-    showToast('实况视频只支持 MP4 / MOV');
-    return;
-  }
-  if (file.size > 60 * 1024 * 1024) {
-    showToast('实况视频超过 60MB，换一段短一点的吧');
-    return;
-  }
-  state.pendingMotion = file;
-  dom.motionName.textContent = `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB`;
-  dom.motionFile.hidden = false;
-  dom.motionInput.value = '';
 }
 
 function compressImage(file) {
