@@ -1491,7 +1491,6 @@ function buildGrid() {
 
 function setupGridMotion() {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const coarse = window.matchMedia('(pointer: coarse)');
   let spotRaf = 0;
   let lastSpotTime = 0;
   let lastX = 0;
@@ -1500,11 +1499,13 @@ function setupGridMotion() {
   const resetSpot = () => {
     $$('.gm-tile', dom.gmPlane).forEach(tile => tile.style.setProperty('--spot', '0'));
     dom.heroSpot.style.opacity = '0';
+    dom.gmPlane.style.setProperty('--gm-x', '0px');
+    dom.gmPlane.style.setProperty('--gm-y', '0px');
   };
 
   const paintSpot = () => {
     spotRaf = 0;
-    if (reduceMotion.matches || coarse.matches) return;
+    if (reduceMotion.matches) return;
 
     const tiles = $$('.gm-tile', dom.gmPlane);
     tiles.forEach(tile => {
@@ -1522,34 +1523,55 @@ function setupGridMotion() {
     });
   };
 
-  dom.hero.addEventListener('pointermove', event => {
-    if (reduceMotion.matches) return;
-
-    const x = event.clientX;
-    const y = event.clientY;
+  const updateSpot = (x, y, touch) => {
     lastX = x;
     lastY = y;
 
     dom.heroSpot.style.setProperty('--mx', `${x}px`);
     dom.heroSpot.style.setProperty('--my', `${y}px`);
-    dom.heroSpot.style.opacity = coarse.matches ? '0' : '1';
+    dom.heroSpot.style.opacity = '1';
 
-    if (!coarse.matches) {
-      const nx = x / window.innerWidth - 0.5;
-      const ny = y / window.innerHeight - 0.5;
-      dom.gmPlane.style.setProperty('--gm-x', `${nx * 22}px`);
-      dom.gmPlane.style.setProperty('--gm-y', `${ny * 16}px`);
-    }
+    const nx = x / window.innerWidth - 0.5;
+    const ny = y / window.innerHeight - 0.5;
+    const strength = touch ? 0.55 : 1;
+    dom.gmPlane.style.setProperty('--gm-x', `${nx * 22 * strength}px`);
+    dom.gmPlane.style.setProperty('--gm-y', `${ny * 16 * strength}px`);
 
     const now = performance.now();
     if (!spotRaf && now - lastSpotTime > 70) {
       lastSpotTime = now;
       spotRaf = requestAnimationFrame(paintSpot);
     }
+  };
+
+  dom.hero.addEventListener('pointermove', event => {
+    if (reduceMotion.matches) return;
+    updateSpot(event.clientX, event.clientY, event.pointerType === 'touch');
   }, { passive: true });
 
-  dom.hero.addEventListener('pointerleave', resetSpot);
-  dom.hero.addEventListener('pointercancel', resetSpot);
+  dom.hero.addEventListener('touchstart', event => {
+    const point = event.touches[0];
+    if (!point || reduceMotion.matches) return;
+    updateSpot(point.clientX, point.clientY, true);
+  }, { passive: true });
+
+  dom.hero.addEventListener('touchmove', event => {
+    const point = event.touches[0];
+    if (!point || reduceMotion.matches) return;
+    updateSpot(point.clientX, point.clientY, true);
+  }, { passive: true });
+
+  dom.hero.addEventListener('touchend', resetSpot, { passive: true });
+  dom.hero.addEventListener('touchcancel', resetSpot, { passive: true });
+  dom.hero.addEventListener('pointerleave', event => {
+    if (event.pointerType !== 'touch') resetSpot();
+  });
+  dom.hero.addEventListener('pointercancel', event => {
+    if (event.pointerType !== 'touch') resetSpot();
+  });
+  dom.hero.addEventListener('pointerup', event => {
+    if (event.pointerType === 'touch') resetSpot();
+  });
 
   dom.gmPlane.addEventListener('click', event => {
     const tile = event.target.closest('.gm-tile');
@@ -1681,6 +1703,7 @@ function attachCardTilt(button) {
   const glare = $('.quest-card__glare', button);
   let frame = 0;
   let pointer = { x: 0, y: 0 };
+  let touching = false;
 
   const paint = () => {
     frame = 0;
@@ -1695,20 +1718,50 @@ function attachCardTilt(button) {
     glare.style.setProperty('--gy', `${(py * 100).toFixed(1)}%`);
   };
 
-  button.addEventListener('pointermove', event => {
-    if (event.pointerType !== 'mouse') return;
-    pointer = { x: event.clientX, y: event.clientY };
+  const updateTilt = (x, y) => {
+    pointer = { x, y };
     if (!frame) frame = requestAnimationFrame(paint);
-  });
+  };
+
+  button.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'touch') touching = true;
+  }, { passive: true });
+
+  button.addEventListener('pointermove', event => {
+    if (event.pointerType === 'touch' && !touching) return;
+    updateTilt(event.clientX, event.clientY);
+  }, { passive: true });
+
+  button.addEventListener('touchstart', event => {
+    const point = event.touches[0];
+    if (!point) return;
+    touching = true;
+    updateTilt(point.clientX, point.clientY);
+  }, { passive: true });
+
+  button.addEventListener('touchmove', event => {
+    const point = event.touches[0];
+    if (!point) return;
+    updateTilt(point.clientX, point.clientY);
+  }, { passive: true });
 
   const reset = () => {
+    touching = false;
     if (frame) cancelAnimationFrame(frame);
     frame = 0;
     media.style.setProperty('--rx', '0deg');
     media.style.setProperty('--ry', '0deg');
   };
 
-  button.addEventListener('pointerleave', reset);
+  button.addEventListener('touchend', reset, { passive: true });
+  button.addEventListener('touchcancel', reset, { passive: true });
+  button.addEventListener('pointerup', reset);
+  button.addEventListener('pointercancel', event => {
+    if (event.pointerType !== 'touch') reset();
+  });
+  button.addEventListener('pointerleave', event => {
+    if (event.pointerType !== 'touch') reset();
+  });
   button.addEventListener('blur', reset);
 }
 
@@ -2313,8 +2366,11 @@ function fitDetailFrame() {
   const style = getComputedStyle(visual);
   const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
   const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+  const mobile = window.matchMedia('(max-width: 860px)').matches;
   const availableWidth = Math.max(120, visual.clientWidth - padX);
-  const availableHeight = Math.max(120, visual.clientHeight - padY);
+  const availableHeight = mobile
+    ? Math.max(220, window.innerHeight * 0.62)
+    : Math.max(120, visual.clientHeight - padY);
   const ratio = naturalWidth / naturalHeight;
 
   let width = availableWidth;
@@ -2580,10 +2636,10 @@ function setupReflectiveCard() {
   if (!card) return;
 
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const coarse = window.matchMedia('(pointer: coarse)');
   let raf = 0;
   let pointerX = 0.5;
   let pointerY = 0.3;
+  let touching = false;
 
   const paint = () => {
     raf = 0;
@@ -2604,18 +2660,51 @@ function setupReflectiveCard() {
     card.style.setProperty('--rc-light', '0');
   };
 
-  card.addEventListener('pointermove', event => {
-    if (reduced.matches || coarse.matches || event.pointerType === 'touch') return;
+  const updatePointer = (x, y) => {
     const rect = card.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
-    pointerX = clamp((event.clientX - rect.left) / rect.width, 0, 1);
-    pointerY = clamp((event.clientY - rect.top) / rect.height, 0, 1);
+    pointerX = clamp((x - rect.left) / rect.width, 0, 1);
+    pointerY = clamp((y - rect.top) / rect.height, 0, 1);
     card.style.setProperty('--rc-light', '1');
     if (!raf) raf = requestAnimationFrame(paint);
-  });
+  };
 
-  card.addEventListener('pointerleave', reset);
-  card.addEventListener('pointercancel', reset);
+  card.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'touch') touching = true;
+  }, { passive: true });
+
+  card.addEventListener('pointermove', event => {
+    if (reduced.matches) return;
+    if (event.pointerType === 'touch' && !touching) return;
+    updatePointer(event.clientX, event.clientY);
+  }, { passive: true });
+
+  card.addEventListener('touchstart', event => {
+    const point = event.touches[0];
+    if (!point || reduced.matches) return;
+    touching = true;
+    updatePointer(point.clientX, point.clientY);
+  }, { passive: true });
+
+  card.addEventListener('touchmove', event => {
+    const point = event.touches[0];
+    if (!point || reduced.matches) return;
+    updatePointer(point.clientX, point.clientY);
+  }, { passive: true });
+
+  const resetTouch = () => {
+    touching = false;
+    reset();
+  };
+  card.addEventListener('touchend', resetTouch, { passive: true });
+  card.addEventListener('touchcancel', resetTouch, { passive: true });
+  card.addEventListener('pointerup', resetTouch);
+  card.addEventListener('pointerleave', event => {
+    if (event.pointerType !== 'touch') reset();
+  });
+  card.addEventListener('pointercancel', event => {
+    if (event.pointerType !== 'touch') resetTouch();
+  });
   window.addEventListener('blur', reset);
 }
 

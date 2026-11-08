@@ -5507,3 +5507,21 @@ body.is-ready .intro {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+@media (max-width: 860px) {
+  .detail-panel {
+    top: max(10px, env(safe-area-inset-top));
+    bottom: auto;
+    height: auto;
+    max-height: 94vh;
+  }
+
+  .detail-grid {
+    flex: none;
+  }
+
+  .detail-visual {
+    height: auto;
+    min-height: 0;
+  }
+}
