@@ -542,6 +542,10 @@ function updateAuthUI() {
   dom.authMenuRole.textContent = user
     ? (user.role === 'admin' ? 'ADMIN / 管理员' : 'USER / 普通用户')
     : '';
+  if (dom.authMenuAvatar) {
+    dom.authMenuAvatar.textContent = user ? (user.username || '?').slice(0, 1) : '杭';
+    dom.authMenuAvatar.style.setProperty('--avatar-hue', String(avatarHue(user?.username || '杭电')));
+  }
   dom.myProfileButton.hidden = !user;
   dom.adminPanelButton.hidden = !user || user.role !== 'admin';
 
@@ -1152,6 +1156,11 @@ const dom = {
   mobileDetailTitle: $('#mobileDetailTitle'),
   mobileDetailFeeling: $('#mobileDetailFeeling'),
   mobileDetailNote: $('#mobileDetailNote'),
+  mobileRatingHost: $('#mobileRatingHost'),
+  mobileBackRating: $('#mobileBackRating'),
+  mobileBackAverage: $('#mobileBackAverage'),
+  mobileBackStars: $('#mobileBackStars'),
+  mobileBackCount: $('#mobileBackCount'),
   albumStack: $('#albumStack'),
   albumControls: $('#albumControls'),
   albumCounter: $('#albumCounter'),
@@ -1209,6 +1218,14 @@ const dom = {
   dateYear: $('#dateYear'),
   dateMonth: $('#dateMonth'),
   dateDay: $('#dateDay'),
+  dateTrigger: $('#dateTrigger'),
+  dateTriggerText: $('#dateTriggerText'),
+  datePickerPanel: $('#datePicker'),
+  dateTitle: $('#dateTitle'),
+  dateGrid: $('#dateGrid'),
+  datePrev: $('#datePrev'),
+  dateNext: $('#dateNext'),
+  dateToday: $('#dateToday'),
   categoryGlide: $('#categoryGlide'),
   fieldPlace: $('#fieldPlace'),
   fieldFeeling: $('#fieldFeeling'),
@@ -1230,6 +1247,7 @@ const dom = {
   authMenu: $('#authMenu'),
   authMenuName: $('#authMenuName'),
   authMenuRole: $('#authMenuRole'),
+  authMenuAvatar: $('#authMenuAvatar'),
   myProfileButton: $('#myProfileButton'),
   adminPanelButton: $('#adminPanelButton'),
   logoutButton: $('#logoutButton'),
@@ -1583,9 +1601,11 @@ function setupGridMotion() {
 
     const nx = x / window.innerWidth - 0.5;
     const ny = y / window.innerHeight - 0.5;
-    const strength = touch ? 0.55 : 1;
-    dom.gmPlane.style.setProperty('--gm-x', `${nx * 22 * strength}px`);
-    dom.gmPlane.style.setProperty('--gm-y', `${ny * 16 * strength}px`);
+    const strength = touch ? 0 : 1;
+    if (!touch) {
+      dom.gmPlane.style.setProperty('--gm-x', `${nx * 22 * strength}px`);
+      dom.gmPlane.style.setProperty('--gm-y', `${ny * 16 * strength}px`);
+    }
 
     const now = performance.now();
     if (!spotRaf && now - lastSpotTime > 70) {
@@ -1759,6 +1779,7 @@ function renderGallery() {
 }
 
 function attachCardTilt(button) {
+  if (useMobilePreview()) return;
   const media = $('.quest-card__media', button);
   const glare = $('.quest-card__glare', button);
   let frame = 0;
@@ -1962,6 +1983,11 @@ function renderRatingCard(quest) {
   dom.ratingBars.innerHTML = starsMarkup(rating.avg);
   if (dom.mobileDetailScore) {
     dom.mobileDetailScore.textContent = `★ ${rating.votes ? rating.avg.toFixed(1) : '—'} · ${rating.votes} 人评分`;
+  }
+  if (dom.mobileBackAverage) {
+    dom.mobileBackAverage.textContent = rating.votes ? rating.avg.toFixed(1) : '—';
+    dom.mobileBackStars.innerHTML = starsMarkup(rating.avg);
+    dom.mobileBackCount.textContent = `${rating.votes} 人评分`;
   }
 
   if (rating.mine) {
@@ -2260,6 +2286,7 @@ function renderDetail(quest) {
   const rating = getRating(quest);
 
   setDetailFlip(false);
+  placeDetailRatingModule();
   stopDetailMotion();
   dom.motionToggle.hidden = !quest.motion;
   dom.motionToggleLabel.textContent = '实况';
@@ -2495,6 +2522,17 @@ function changeAlbum(direction) {
   );
 }
 
+function placeDetailRatingModule() {
+  const mobile = useMobilePreview();
+  const host = mobile ? dom.mobileRatingHost : dom.flipBackContent;
+  if (!host) return;
+  if (dom.detailReview) {
+    if (mobile) host.prepend(dom.detailReview);
+    else if (dom.detailReview.parentElement !== dom.flipBackContent) dom.flipBackContent.prepend(dom.detailReview);
+  }
+  if (dom.ratingCard && dom.ratingCard.parentElement !== host) host.append(dom.ratingCard);
+}
+
 function setupFlipCard() {
   if (!dom.flipBackContent) return;
   if (dom.detailReview && dom.detailReview.parentElement !== dom.flipBackContent) {
@@ -2503,6 +2541,7 @@ function setupFlipCard() {
   if (dom.ratingCard && dom.ratingCard.parentElement !== dom.flipBackContent) {
     dom.flipBackContent.append(dom.ratingCard);
   }
+  placeDetailRatingModule();
   dom.flipToggle.addEventListener('click', () => setDetailFlip(!state.detailFlipped));
   dom.flipHint.addEventListener('click', () => setDetailFlip(!state.detailFlipped));
   dom.detailImage.addEventListener('click', event => {
@@ -2742,8 +2781,9 @@ function setupReflectiveCard() {
 
   const paint = () => {
     raf = 0;
-    const tiltX = (0.5 - pointerY) * 4.4;
-    const tiltY = (pointerX - 0.5) * 5.2;
+    const mobile = useMobilePreview();
+    const tiltX = mobile ? 0 : (0.5 - pointerY) * 4.4;
+    const tiltY = mobile ? 0 : (pointerX - 0.5) * 5.2;
     card.style.setProperty('--rc-rx', `${tiltX.toFixed(2)}deg`);
     card.style.setProperty('--rc-ry', `${tiltY.toFixed(2)}deg`);
     card.style.setProperty('--rc-gx', `${(pointerX * 100).toFixed(1)}%`);
@@ -2809,7 +2849,10 @@ function setupReflectiveCard() {
 
 function setupDetail() {
   window.addEventListener('resize', () => {
-    if (detailOpen) requestAnimationFrame(fitDetailFrame);
+    if (detailOpen) {
+      placeDetailRatingModule();
+      requestAnimationFrame(fitDetailFrame);
+    }
   });
   dom.detailClose.addEventListener('click', () => closeDetail());
   $$('[data-close-detail]').forEach(element => {
@@ -3456,112 +3499,137 @@ function createGlideSelect(root, config = {}) {
 }
 
 function setupGlideSelects() {
-  if (!dom.categoryGlide || !dom.dateYear || !dom.dateMonth || !dom.dateDay) return;
-
-  categoryPicker = createGlideSelect(dom.categoryGlide, {
-    options: CATEGORIES.map(category => ({ value: category, label: category })),
-    value: '校园',
-    ariaLabel: '选择图片类目',
-    onChange: value => {
-      dom.fieldCategory.value = value;
-    }
-  });
-  dom.fieldCategory.value = '校园';
-
-  const today = new Date();
-  const stateDate = {
-    year: today.getFullYear(),
-    month: today.getMonth() + 1,
-    day: today.getDate()
-  };
-
-  const yearNow = today.getFullYear();
-  const years = Array.from({ length: 42 }, (_, index) => yearNow - index);
-  const monthOptions = Array.from({ length: 12 }, (_, index) => {
-    const month = index + 1;
-    return { value: String(month), label: `${month}月`, tag: month === today.getMonth() + 1 ? '本月' : '' };
-  });
-
-  const syncDate = () => {
-    dom.fieldDate.value = `${stateDate.year}-${pad(stateDate.month)}-${pad(stateDate.day)}`;
-  };
-
-  const dayOptions = () => {
-    const total = new Date(stateDate.year, stateDate.month, 0).getDate();
-    if (stateDate.day > total) stateDate.day = total;
-    return Array.from({ length: total }, (_, index) => {
-      const day = index + 1;
-      const weekday = new Date(stateDate.year, stateDate.month - 1, day).toLocaleDateString('zh-CN', { weekday: 'short' });
-      return {
-        value: String(day),
-        label: `${pad(day)}日`,
-        tag: day === today.getDate() && stateDate.month === today.getMonth() + 1 && stateDate.year === today.getFullYear() ? '今天' : weekday
-      };
+  if (dom.categoryGlide) {
+    categoryPicker = createGlideSelect(dom.categoryGlide, {
+      options: CATEGORIES.map(category => ({ value: category, label: category })),
+      value: '校园',
+      ariaLabel: '选择图片类目',
+      onChange: value => {
+        dom.fieldCategory.value = value;
+      }
     });
+    dom.fieldCategory.value = '校园';
+  }
+  setupDatePicker();
+}
+
+function setupDatePicker() {
+  if (!dom.dateTrigger || !dom.datePickerPanel || !dom.dateGrid) return;
+
+  let selected = new Date();
+  let viewYear = selected.getFullYear();
+  let viewMonth = selected.getMonth();
+
+  const isoFor = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const triggerText = date => `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())}`;
+  const sameDay = (left, right) => left.getFullYear() === right.getFullYear()
+    && left.getMonth() === right.getMonth()
+    && left.getDate() === right.getDate();
+
+  const close = () => {
+    dom.datePickerPanel.classList.remove('is-open');
+    dom.dateTrigger.setAttribute('aria-expanded', 'false');
+    window.setTimeout(() => {
+      if (!dom.datePickerPanel.classList.contains('is-open')) dom.datePickerPanel.hidden = true;
+    }, 180);
   };
 
-  const yearPicker = createGlideSelect(dom.dateYear, {
-    options: years.map(year => ({ value: String(year), label: String(year), tag: year === yearNow ? '今年' : '' })),
-    value: String(stateDate.year),
-    ariaLabel: '选择拍摄年份',
-    menuWidth: 120,
-    onChange: value => {
-      stateDate.year = Number(value);
-      refreshDays();
-    }
-  });
+  const render = (animate = false) => {
+    dom.dateTitle.textContent = `${viewYear} / ${pad(viewMonth + 1)}`;
+    const today = new Date();
+    const first = new Date(viewYear, viewMonth, 1);
+    const start = new Date(viewYear, viewMonth, 1 - first.getDay());
+    const cells = [];
 
-  const monthPicker = createGlideSelect(dom.dateMonth, {
-    options: monthOptions,
-    value: String(stateDate.month),
-    ariaLabel: '选择拍摄月份',
-    menuWidth: 108,
-    onChange: value => {
-      stateDate.month = Number(value);
-      refreshDays();
+    for (let index = 0; index < 42; index += 1) {
+      const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
+      const classes = ['date-picker__day'];
+      if (date.getMonth() !== viewMonth) classes.push('is-other');
+      if (sameDay(date, today)) classes.push('is-today');
+      if (sameDay(date, selected)) classes.push('is-selected');
+      cells.push(`<button class="${classes.join(' ')}" type="button" data-date="${isoFor(date)}" style="--day-delay:${Math.min(index * 7, 150)}ms">${date.getDate()}</button>`);
     }
-  });
 
-  let dayPicker = null;
-  const refreshDays = () => {
-    const options = dayOptions();
-    dayPicker.setOptions(options, String(stateDate.day));
-    syncDate();
+    dom.dateGrid.innerHTML = cells.join('');
+    if (animate) {
+      dom.dateGrid.animate(
+        [
+          { opacity: 0, transform: 'translateY(5px)' },
+          { opacity: 1, transform: 'translateY(0)' }
+        ],
+        { duration: 240, easing: 'cubic-bezier(.22,1,.36,1)' }
+      );
+    }
   };
-
-  dayPicker = createGlideSelect(dom.dateDay, {
-    options: dayOptions(),
-    value: String(stateDate.day),
-    ariaLabel: '选择拍摄日期',
-    menuWidth: 112,
-    onChange: value => {
-      stateDate.day = Number(value);
-      syncDate();
-    }
-  });
 
   const setDate = iso => {
     const parsed = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
-    const date = parsed ? new Date(Number(parsed[1]), Number(parsed[2]) - 1, Number(parsed[3])) : new Date();
-    stateDate.year = date.getFullYear();
-    stateDate.month = date.getMonth() + 1;
-    stateDate.day = date.getDate();
-    if (!years.includes(stateDate.year)) {
-      years.unshift(stateDate.year);
-      yearPicker.setOptions(
-        years.map(year => ({ value: String(year), label: String(year), tag: year === yearNow ? '今年' : '' })),
-        String(stateDate.year)
-      );
-    } else {
-      yearPicker.setValue(String(stateDate.year));
-    }
-    monthPicker.setValue(String(stateDate.month));
-    refreshDays();
-    dayPicker.setValue(String(stateDate.day));
-    syncDate();
+    selected = parsed
+      ? new Date(Number(parsed[1]), Number(parsed[2]) - 1, Number(parsed[3]))
+      : new Date();
+    viewYear = selected.getFullYear();
+    viewMonth = selected.getMonth();
+    dom.fieldDate.value = isoFor(selected);
+    dom.dateTriggerText.textContent = triggerText(selected);
+    render();
   };
 
-  datePicker = { setDate };
+  const open = () => {
+    dom.datePickerPanel.hidden = false;
+    dom.dateTrigger.setAttribute('aria-expanded', 'true');
+    render();
+    requestAnimationFrame(() => dom.datePickerPanel.classList.add('is-open'));
+  };
+
+  const shiftMonth = delta => {
+    const next = new Date(viewYear, viewMonth + delta, 1);
+    viewYear = next.getFullYear();
+    viewMonth = next.getMonth();
+    render(true);
+  };
+
+  dom.dateTrigger.addEventListener('click', event => {
+    event.stopPropagation();
+    if (dom.datePickerPanel.hidden) open();
+    else close();
+  });
+
+  dom.datePrev.addEventListener('click', event => {
+    event.stopPropagation();
+    shiftMonth(-1);
+  });
+  dom.dateNext.addEventListener('click', event => {
+    event.stopPropagation();
+    shiftMonth(1);
+  });
+  dom.dateToday.addEventListener('click', event => {
+    event.stopPropagation();
+    setDate(todayISO());
+    close();
+  });
+
+  dom.dateGrid.addEventListener('click', event => {
+    const button = event.target.closest('[data-date]');
+    if (!button) return;
+    event.stopPropagation();
+    setDate(button.dataset.date);
+    close();
+  });
+
+  document.addEventListener('click', event => {
+    if (dom.datePickerPanel.hidden) return;
+    if (dom.datePickerPanel.contains(event.target) || dom.dateTrigger.contains(event.target)) return;
+    close();
+  });
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !dom.datePickerPanel.hidden) {
+      event.stopImmediatePropagation();
+      close();
+    }
+  });
+
+  datePicker = { setDate, close };
   setDate(todayISO());
 }
 
@@ -3616,6 +3684,7 @@ function resetUploadForm() {
   dom.fieldTime.value = currentTime();
   dom.fieldCategory.value = '校园';
   categoryPicker?.setValue('校园');
+  datePicker?.close();
   datePicker?.setDate(todayISO());
   dom.fileInput.value = '';
   dom.uploadMotionChip.hidden = true;

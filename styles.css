@@ -1,5 +1,5 @@
 /* =========================================================
-   杭电支线 · HDU SIDE QUESTS
+   鏉數鏀嚎 路 HDU SIDE QUESTS
    A student atlas of ordinary days
    ========================================================= */
 
@@ -2611,7 +2611,7 @@ body.is-ready .intro {
 }
 
 .detail-feeling blockquote::before {
-  content: "“";
+  content: "鈥?;
   display: block;
   height: 0.55em;
   font-size: 2.2em;
@@ -5273,7 +5273,7 @@ body.is-ready .intro {
 }
 
 .flip-back__feeling::before {
-  content: "“";
+  content: "鈥?;
   color: var(--accent);
   margin-right: 4px;
 }
@@ -5667,5 +5667,374 @@ body.is-ready .intro {
     font-family: var(--font-mono);
     font-size: 8px;
     letter-spacing: 0.06em;
+  }
+}
+
+/* ---------- rounded mobile menu + user menu motion ---------- */
+
+.auth-menu {
+  border-radius: 18px;
+  transform-origin: top right;
+  animation: userMenuIn 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.auth-menu__head {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px 13px;
+}
+
+.auth-menu__head > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.auth-menu__avatar {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: hsl(var(--avatar-hue, 220) 55% 42%);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.auth-menu__item {
+  animation: userMenuItemIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.auth-menu__item:nth-of-type(1) { animation-delay: 0.05s; }
+.auth-menu__item:nth-of-type(2) { animation-delay: 0.09s; }
+.auth-menu__item:nth-of-type(3) { animation-delay: 0.13s; }
+
+@keyframes userMenuIn {
+  from { opacity: 0; transform: translateY(-7px) scale(0.94); filter: blur(3px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+@keyframes userMenuItemIn {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.mobile-menu {
+  top: 62px;
+  right: 14px;
+  left: auto;
+  width: min(330px, calc(100vw - 28px));
+  padding: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background: rgba(17, 16, 13, 0.97);
+  box-shadow: 0 26px 70px -25px rgba(0, 0, 0, 0.95);
+  transform-origin: top right;
+  transform: translateY(-7px) scale(0.96);
+}
+
+.mobile-menu.is-open {
+  transform: translateY(0) scale(1);
+}
+
+.mobile-menu a,
+.mobile-menu button {
+  padding: 13px 11px;
+  font-size: 19px;
+  border-radius: 10px;
+}
+
+.mobile-menu a:hover,
+.mobile-menu button:hover {
+  background: rgba(242, 238, 229, 0.055);
+}
+
+.mobile-menu p {
+  margin: 12px 11px 5px;
+}
+
+/* ---------- month picker calendar ---------- */
+
+.field--date {
+  position: relative;
+}
+
+.date-trigger {
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  color: var(--paper);
+  background: rgba(242, 238, 229, 0.035);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.date-trigger:hover,
+.date-trigger[aria-expanded="true"] {
+  border-color: var(--accent);
+  background: rgba(77, 124, 255, 0.08);
+}
+
+.date-trigger svg {
+  width: 17px;
+  height: 17px;
+  color: var(--accent);
+}
+
+.date-picker {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  top: auto;
+  left: 0;
+  z-index: 80;
+  width: min(310px, calc(100vw - 56px));
+  padding: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: rgba(17, 15, 12, 0.98);
+  box-shadow: 0 26px 70px -22px rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  opacity: 0;
+  transform: translateY(6px) scale(0.96);
+  transform-origin: bottom left;
+  transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.date-picker[hidden] {
+  display: none !important;
+}
+
+.date-picker.is-open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.date-picker__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 2px 10px;
+}
+
+.date-picker__head button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--paper-soft);
+  font-size: 19px;
+  line-height: 1;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.date-picker__head button:hover {
+  border-color: var(--accent);
+  color: var(--paper);
+}
+
+.date-picker__head strong {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+
+.date-picker__week,
+.date-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.date-picker__week {
+  padding: 5px 0 7px;
+  color: var(--dim);
+  font-family: var(--font-mono);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.date-picker__grid {
+  gap: 3px;
+}
+
+.date-picker__day {
+  position: relative;
+  height: 34px;
+  border-radius: 8px;
+  color: var(--paper-soft);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  animation: dayCellIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--day-delay, 0ms);
+}
+
+.date-picker__day:hover {
+  background: rgba(77, 124, 255, 0.14);
+  color: var(--paper);
+  transform: translateY(-1px);
+}
+
+.date-picker__day.is-other {
+  color: rgba(242, 238, 229, 0.2);
+}
+
+.date-picker__day.is-today::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: translateX(-50%);
+}
+
+.date-picker__day.is-selected {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 5px 16px -8px rgba(77, 124, 255, 0.9);
+}
+
+.date-picker__day.is-selected::after {
+  background: #fff;
+}
+
+@keyframes dayCellIn {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.date-picker__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding: 8px 2px 1px;
+  border-top: 1px solid var(--line);
+}
+
+.date-picker__foot span {
+  color: var(--dim);
+  font-family: var(--font-mono);
+  font-size: 6.5px;
+  letter-spacing: 0.1em;
+}
+
+.date-picker__foot button {
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 7px;
+}
+
+/* ---------- mobile rating placement ---------- */
+
+.mobile-back-rating {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .flip-back__scroll {
+    display: none !important;
+  }
+
+  .mobile-back-rating {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+    padding: 18px;
+  }
+
+  .mobile-back-rating > span {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 7px;
+    letter-spacing: 0.14em;
+  }
+
+  .mobile-back-rating > strong {
+    font-family: var(--font-display);
+    font-size: clamp(58px, 18vw, 96px);
+    font-weight: 500;
+    line-height: 1;
+    color: var(--paper);
+  }
+
+  .mobile-back-rating__stars {
+    color: var(--gold);
+    font-size: 14px;
+    letter-spacing: 0.12em;
+  }
+
+  .mobile-back-rating small {
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 7px;
+  }
+
+  .mobile-rating-host {
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+
+  .mobile-rating-host .rating-card {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .mobile-rating-host .rating-card__head {
+    gap: 14px;
+  }
+
+  .mobile-rating-host .rating-score strong {
+    font-size: clamp(38px, 12vw, 56px);
+  }
+
+  .mobile-rating-host .rating-divider {
+    margin: 15px 0;
+  }
+
+  .date-picker {
+    width: min(330px, calc(100vw - 40px));
+  }
+}
+
+
+@media (max-width: 860px) {
+  .mobile-back-rating__stars,
+  .mobile-back-rating small {
+    display: none;
+  }
+
+  .flip-back__hint {
+    display: none !important;
   }
 }

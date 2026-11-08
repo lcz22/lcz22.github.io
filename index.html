@@ -8,7 +8,7 @@
   <title>杭电支线 · HDU SIDE QUESTS</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="assets/fonts/noto-serif-sc-subset.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261108-final11">
+  <link rel="stylesheet" href="styles.css?v=20261108-final13">
 </head>
 <body>
   <div class="grain" aria-hidden="true"></div>
@@ -46,8 +46,11 @@
         </button>
         <div class="auth-menu" id="authMenu" role="menu" hidden>
           <div class="auth-menu__head">
-            <strong id="authMenuName"></strong>
-            <span id="authMenuRole"></span>
+            <span class="auth-menu__avatar" id="authMenuAvatar" aria-hidden="true">杭</span>
+            <div>
+              <strong id="authMenuName"></strong>
+              <span id="authMenuRole"></span>
+            </div>
           </div>
           <button class="auth-menu__item" id="myProfileButton" type="button" role="menuitem" hidden>我的主页 <span>↗</span></button>
           <button class="auth-menu__item" id="adminPanelButton" type="button" role="menuitem" hidden>管理后台 <span>↗</span></button>
@@ -344,6 +347,12 @@
                     <span>RATING / 背面</span>
                     <strong>翻回照片</strong>
                   </div>
+                  <div class="mobile-back-rating" id="mobileBackRating">
+                    <span>AVERAGE SCORE</span>
+                    <strong id="mobileBackAverage">—</strong>
+                    <div class="mobile-back-rating__stars" id="mobileBackStars"></div>
+                    <small id="mobileBackCount">0 人评分</small>
+                  </div>
                   <div class="flip-back__scroll" id="flipBackContent">
                     <div class="flip-back__story">
                       <p class="flip-back__meta" id="flipBackMeta"></p>
@@ -376,6 +385,7 @@
           <h2 id="mobileDetailTitle"></h2>
           <p class="detail-mobile-info__feeling" id="mobileDetailFeeling"></p>
           <p class="detail-mobile-info__note" id="mobileDetailNote"></p>
+          <div class="mobile-rating-host" id="mobileRatingHost"></div>
         </div>
 
         <div class="detail-content" id="detailContent">
@@ -536,10 +546,24 @@
             <div class="field field--date">
               <span class="field__label">拍摄日期</span>
               <input id="fieldDate" name="date" type="hidden" value="">
-              <div class="date-glide" id="dateGlide">
-                <div class="glide-select glide-select--date" id="dateYear"></div>
-                <div class="glide-select glide-select--date" id="dateMonth"></div>
-                <div class="glide-select glide-select--date" id="dateDay"></div>
+              <button class="date-trigger" id="dateTrigger" type="button" aria-haspopup="dialog" aria-expanded="false">
+                <span id="dateTriggerText">2026.11.08</span>
+                <svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><rect x="2.5" y="3.5" width="13" height="12" rx="2" stroke="currentColor"/><path d="M2.5 7h13M6 2v3M12 2v3" stroke="currentColor"/></svg>
+              </button>
+              <div class="date-picker" id="datePicker" role="dialog" aria-label="选择拍摄日期" hidden>
+                <div class="date-picker__head">
+                  <button type="button" id="datePrev" aria-label="上个月">‹</button>
+                  <strong id="dateTitle">2026 / 11</strong>
+                  <button type="button" id="dateNext" aria-label="下个月">›</button>
+                </div>
+                <div class="date-picker__week" aria-hidden="true">
+                  <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+                </div>
+                <div class="date-picker__grid" id="dateGrid"></div>
+                <div class="date-picker__foot">
+                  <span>SELECT A DAY</span>
+                  <button type="button" id="dateToday">今天</button>
+                </div>
               </div>
             </div>
 
@@ -718,6 +742,6 @@
         : ''
     );
   </script>
-  <script src="app.js?v=20261108-final11"></script>
+  <script src="app.js?v=20261108-final13"></script>
 </body>
 </html>
