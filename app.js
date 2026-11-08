@@ -284,6 +284,8 @@ const state = {
   albumIndex: 0,
   albumQuestId: null,
   detailFlipped: false,
+  detailRatio: null,
+  forceDetailRatio: false,
   galleryLimit: 12,
   filter: 'all',
   activeId: null,
@@ -2496,7 +2498,10 @@ function fitDetailFrame() {
   if (!detailOpen || !dom.detailVisual || !dom.flipStage || !dom.detailImage) return;
   const naturalWidth = dom.detailImage.naturalWidth;
   const naturalHeight = dom.detailImage.naturalHeight;
-  if (!naturalWidth || !naturalHeight) return;
+  const ratio = state.forceDetailRatio && state.detailRatio
+    ? state.detailRatio
+    : (naturalWidth && naturalHeight ? naturalWidth / naturalHeight : state.detailRatio);
+  if (!ratio) return;
 
   const visual = dom.detailVisual;
   const style = getComputedStyle(visual);
@@ -2507,7 +2512,6 @@ function fitDetailFrame() {
   const availableHeight = mobile
     ? Math.max(220, window.innerHeight * 0.48)
     : Math.max(120, visual.clientHeight - padY);
-  const ratio = naturalWidth / naturalHeight;
 
   let width = availableWidth;
   let height = width / ratio;
@@ -2527,6 +2531,7 @@ function changeAlbum(direction) {
   if (images.length < 2) return;
   state.albumIndex = (state.albumIndex + direction + images.length) % images.length;
   setDetailFlip(false);
+  dom.detailImage.style.opacity = '0';
   renderAlbum(quest);
   window.setTimeout(fitDetailFrame, 80);
   dom.detailImage.animate(
@@ -2626,12 +2631,15 @@ function openDetail(id, sourceImage = null, albumIndex = 0) {
   state.activeId = id;
   state.albumQuestId = id;
   state.albumIndex = albumIndex;
+  state.detailRatio = sourceImage?.naturalWidth && sourceImage?.naturalHeight
+    ? sourceImage.naturalWidth / sourceImage.naturalHeight
+    : 4 / 3;
+  state.forceDetailRatio = true;
+  state.flightPending = canFly;
+  dom.flipStage?.classList.add('is-opening');
   setDetailFlip(false);
   state.lastFocus = document.activeElement;
-  if (canFly) {
-    state.flightPending = true;
-    dom.detailImage.style.opacity = '0';
-  }
+  dom.detailImage.style.opacity = '0';
   dom.reflectiveCard?.style.setProperty('--rc-light', '0');
   dom.reflectiveCard?.style.setProperty('--rc-rx', '0deg');
   dom.reflectiveCard?.style.setProperty('--rc-ry', '0deg');
@@ -2642,11 +2650,16 @@ function openDetail(id, sourceImage = null, albumIndex = 0) {
   dom.detailLayer.setAttribute('aria-hidden', 'false');
   dom.body.classList.add('is-locked');
   setQuestParam(id);
-  requestAnimationFrame(fitDetailFrame);
+  fitDetailFrame();
 
   if (canFly) {
     runPhotoFlight(sourceImage, sourceFrame, sourceRect);
   }
+
+  requestAnimationFrame(() => {
+    fitDetailFrame();
+    dom.flipStage?.classList.remove('is-opening');
+  });
 
   window.setTimeout(() => {
     dom.detailClose.focus({ preventScroll: true });
@@ -2769,6 +2782,9 @@ function closeDetail(skipFocus = false) {
   clearPhotoFlight();
   detailOpen = false;
   state.activeId = null;
+  state.detailRatio = null;
+  state.forceDetailRatio = false;
+  dom.flipStage?.classList.remove('is-opening');
   if (dom.flipHint) {
     window.clearTimeout(flipHintTimer);
     dom.flipHint.classList.remove('is-visible');
@@ -2895,6 +2911,7 @@ function setupDetail() {
     if (!state.flight && !state.flightPending) dom.detailImage.style.opacity = '0.15';
   });
   dom.detailImage.addEventListener('load', () => {
+    state.forceDetailRatio = false;
     if (!state.flight && !state.flightPending) dom.detailImage.style.opacity = '';
     requestAnimationFrame(fitDetailFrame);
   });
