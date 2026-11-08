@@ -493,7 +493,7 @@ async function apiRequest(path, options = {}) {
 async function connectApi() {
   if (!state.apiBase) return false;
   const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), 1400);
+  const timer = window.setTimeout(() => controller.abort(), 5000);
   try {
     const response = await fetch(`${state.apiBase}/health`, { signal: controller.signal });
     return response.ok;
@@ -506,7 +506,7 @@ async function connectApi() {
 
 async function connectApiWithRetry() {
   if (await connectApi()) return true;
-  await new Promise(resolve => window.setTimeout(resolve, 900));
+  await new Promise(resolve => window.setTimeout(resolve, 1500));
   return connectApi();
 }
 
