@@ -870,3 +870,10 @@
     display: none;
   }
 }
+
+.scissors-float {
+  position: fixed;
+  z-index: 1900;
+  pointer-events: none;
+  margin: 0;
+}

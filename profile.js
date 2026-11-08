@@ -309,6 +309,7 @@ function openLightbox(questId) {
 function closeLightbox() {
   if (lightboxDrag) {
     lightboxDrag.clone?.remove();
+    lightboxDrag.float?.remove();
     lightboxDrag.image.style.opacity = '';
     lightboxDrag = null;
   }
@@ -325,12 +326,13 @@ function removeLightboxDragListeners() {
 
 function onLightboxPointerMove(event) {
   if (!lightboxDrag) return;
-  const { clone, startX, startY, rect } = lightboxDrag;
+  const { clone, float, startX, startY, rect } = lightboxDrag;
   clone.style.left = `${rect.left + event.clientX - startX}px`;
   clone.style.top = `${rect.top + event.clientY - startY}px`;
   const over = document.elementFromPoint(event.clientX, event.clientY)
-    ?.closest('#lightboxScissors');
+    ?.closest('#lightboxScissors, .scissors-float');
   profileDom.lightboxScissors.classList.toggle('is-over', Boolean(over));
+  float?.classList.toggle('is-over', Boolean(over));
 }
 
 function finishLightboxDrag(drop) {
@@ -338,6 +340,7 @@ function finishLightboxDrag(drop) {
   const drag = lightboxDrag;
   lightboxDrag = null;
   removeLightboxDragListeners();
+  drag.float?.remove();
   profileDom.lightboxScissors.classList.remove('is-over');
   if (drop) {
     profileDom.lightboxScissors.classList.add('is-fired');
@@ -359,7 +362,7 @@ function finishLightboxDrag(drop) {
 function onLightboxPointerUp(event) {
   if (!lightboxDrag) return;
   const over = document.elementFromPoint(event.clientX, event.clientY)
-    ?.closest('#lightboxScissors');
+    ?.closest('#lightboxScissors, .scissors-float');
   finishLightboxDrag(Boolean(over));
 }
 
@@ -381,9 +384,23 @@ function startLightboxDrag(event) {
   clone.style.height = `${rect.height}px`;
   clone.style.transform = 'scale(0.78)';
   document.body.append(clone);
+
+  const scissorsRect = profileDom.lightboxScissors.getBoundingClientRect();
+  const float = profileDom.lightboxScissors.cloneNode(true);
+  float.removeAttribute('id');
+  float.classList.add('scissors-float');
+  float.style.left = `${scissorsRect.left}px`;
+  float.style.top = `${scissorsRect.top}px`;
+  float.style.right = 'auto';
+  float.style.bottom = 'auto';
+  float.style.width = `${scissorsRect.width}px`;
+  float.style.height = `${scissorsRect.height}px`;
+  document.body.append(float);
+
   image.style.opacity = '0.24';
   lightboxDrag = {
     clone,
+    float,
     image,
     quest: currentLightboxQuest,
     rect,
