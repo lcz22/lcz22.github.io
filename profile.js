@@ -45,8 +45,28 @@ function apiBase() {
   return '';
 }
 
-function authToken() {
+function useMobilePreview() {
   try {
+    return window.matchMedia('(max-width: 860px)').matches;
+  } catch (error) {
+    return false;
+  }
+}
+
+function thumbUrl(url) {
+  if (!url || url.startsWith('data:') || url.startsWith('blob:')) return url;
+  if (url.includes('/assets/photos/')) {
+    return url
+      .replace('/assets/photos/', '/assets/photos/thumbs/')
+      .replace(/\.(jpe?g|png|webp|gif|avif|bmp|heic|heif)$/i, '.jpg');
+  }
+  if (url.includes('/uploads/')) {
+    return url.replace('/uploads/', '/uploads/thumbs/').replace(/\.[^/.]+$/, '.jpg');
+  }
+  return url;
+}
+
+function authToken() {  try {
     return localStorage.getItem(API_TOKEN_KEY) || '';
   } catch (error) {
     return '';
@@ -153,7 +173,7 @@ function renderCard(quest, canDelete) {
   return `<a class="profile-card" href="index.html?quest=${encodeURIComponent(quest.id)}"
     data-quest-id="${escapeHTML(quest.id)}" draggable="false">
     <div class="profile-card__media">
-      <img src="${escapeHTML(quest.image)}" alt="${escapeHTML(quest.title)}" loading="lazy" decoding="async" draggable="false">
+      <img src="${escapeHTML(useMobilePreview() ? thumbUrl(quest.image) : quest.image)}" data-full="${escapeHTML(quest.image)}" alt="${escapeHTML(quest.title)}" loading="lazy" decoding="async" draggable="false">
       <span class="profile-card__shade" aria-hidden="true"></span>
       ${statusMarkup}
       ${motionMarkup}
@@ -186,6 +206,11 @@ function renderProfile(profile, me) {
     : profile.stats.average_score.toFixed(1);
   profileDom.count.textContent = `${profile.quests.length} 条`;
   profileDom.grid.innerHTML = profile.quests.map(quest => renderCard(quest, profile.is_self)).join('');
+  profileDom.grid.querySelectorAll('img[data-full]').forEach(image => {
+    image.addEventListener('error', () => {
+      if (image.dataset.full && image.src !== image.dataset.full) image.src = image.dataset.full;
+    }, { once: true });
+  });
 
   if (!profile.quests.length) {
     renderEmpty(profile.is_self

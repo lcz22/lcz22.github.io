@@ -284,6 +284,7 @@ const state = {
   albumIndex: 0,
   albumQuestId: null,
   detailFlipped: false,
+  galleryLimit: 12,
   filter: 'all',
   activeId: null,
   db: null,
@@ -397,8 +398,44 @@ function resolveApiBase() {
   return '';
 }
 
-function avatarHue(username) {
-  let hash = 0;
+function useMobilePreview() {
+  try {
+    return window.matchMedia('(max-width: 860px)').matches;
+  } catch (error) {
+    return false;
+  }
+}
+
+function thumbUrl(url) {
+  if (!url || url.startsWith('data:') || url.startsWith('blob:')) return url;
+  if (url.includes('/assets/photos/')) {
+    return url
+      .replace('/assets/photos/', '/assets/photos/thumbs/')
+      .replace(/\.(jpe?g|png|webp|gif|avif|bmp|heic|heif)$/i, '.jpg');
+  }
+  if (url.includes('/uploads/')) {
+    return url
+      .replace('/uploads/', '/uploads/thumbs/')
+      .replace(/\.[^/.]+$/, '.jpg');
+  }
+  return url;
+}
+
+function setThumbImage(image, full, thumb, onError) {
+  const preview = thumb && thumb !== full ? thumb : full;
+  let fellBack = false;
+  image.addEventListener('error', () => {
+    if (!fellBack && preview !== full) {
+      fellBack = true;
+      image.src = full;
+      return;
+    }
+    onError?.();
+  });
+  image.src = preview;
+}
+
+function avatarHue(username) {  let hash = 0;
   for (const character of String(username || '杭电')) {
     hash = (hash * 31 + character.codePointAt(0)) % 360;
   }
@@ -785,7 +822,7 @@ function renderAdmin() {
       : '';
     return `<div class="admin-row">
       <a class="admin-thumb" href="${escapeHTML(quest.image)}" data-admin-preview="${escapeHTML(quest.id)}" aria-label="查看投稿原图">
-        <img src="${escapeHTML(quest.image)}" alt="" loading="lazy">
+        <img src="${escapeHTML(useMobilePreview() ? thumbUrl(quest.image) : quest.image)}" alt="" loading="lazy">
       </a>
       <div class="admin-row__main">
         <div class="admin-row__title">${escapeHTML(quest.title)} ${statusBadge}</div>
@@ -902,7 +939,7 @@ function renderAdminPreviewImage(index) {
   dom.adminPreviewImage.alt = quest.title;
   dom.adminPreviewThumbs.innerHTML = images.map((url, imageIndex) => `
     <button type="button" class="admin-preview__thumb ${imageIndex === state.adminPreviewIndex ? 'is-active' : ''}" data-preview-index="${imageIndex}" aria-label="查看第 ${imageIndex + 1} 张图">
-      <img src="${escapeHTML(url)}" alt="" loading="lazy">
+      <img src="${escapeHTML(thumbUrl(url))}" alt="" loading="lazy">
     </button>`).join('');
   dom.adminPreviewThumbs.hidden = images.length < 2;
 }
@@ -1072,6 +1109,9 @@ const dom = {
   heroCount: $('#heroCount'),
   gallery: $('#gallery'),
   galleryEmpty: $('#galleryEmpty'),
+  galleryMore: $('#galleryMore'),
+  galleryMoreButton: $('#galleryMoreButton'),
+  galleryMoreCount: $('#galleryMoreCount'),
   filters: $('#filters'),
   indexCount: $('#indexCount'),
   statQuests: $('#statQuests'),
@@ -1105,6 +1145,13 @@ const dom = {
   flipBackFeeling: $('#flipBackFeeling'),
   flipBackNote: $('#flipBackNote'),
   flipToggle: $('#flipToggle'),
+  flipHint: $('#flipHint'),
+  flipHintText: $('#flipHintText'),
+  mobileDetailMeta: $('#mobileDetailMeta'),
+  mobileDetailScore: $('#mobileDetailScore'),
+  mobileDetailTitle: $('#mobileDetailTitle'),
+  mobileDetailFeeling: $('#mobileDetailFeeling'),
+  mobileDetailNote: $('#mobileDetailNote'),
   albumStack: $('#albumStack'),
   albumControls: $('#albumControls'),
   albumCounter: $('#albumCounter'),
@@ -1463,20 +1510,23 @@ function buildGrid() {
         tile.innerHTML = tileMarkup(quest);
 
         const image = document.createElement('img');
-        image.src = quest.image;
         image.alt = '';
         image.loading = 'eager';
         image.decoding = 'async';
         image.draggable = false;
+        setThumbImage(
+          image,
+          quest.image,
+          useMobilePreview() ? thumbUrl(quest.image) : quest.image,
+          () => {
+            tile.style.background = 'linear-gradient(140deg, #242018, #0d0b09)';
+            image.style.display = 'none';
+          }
+        );
         tile.prepend(image);
 
         $('.gm-tile__caption strong', tile).textContent = quest.title;
         $('.gm-tile__caption span span', tile).textContent = `${quest.date} / ${quest.place}`;
-
-        image.addEventListener('error', () => {
-          tile.style.background = 'linear-gradient(140deg, #242018, #0d0b09)';
-          image.style.display = 'none';
-        });
 
         group.append(tile);
       }
@@ -1629,7 +1679,9 @@ function updateFilterCounts() {
 }
 
 function renderGallery() {
-  const list = indexQuests();
+  const all = indexQuests();
+  const mobile = useMobilePreview();
+  const list = mobile ? all.slice(0, state.galleryLimit) : all;
   const fragment = document.createDocumentFragment();
   dom.gallery.innerHTML = '';
 
@@ -1646,15 +1698,19 @@ function renderGallery() {
     card.style.setProperty('--delay', `${Math.min(index * 40, 320)}ms`);
 
     const image = $('img', card);
-    image.src = quest.image;
     image.alt = `${quest.title}，${quest.place}`;
-    image.addEventListener('error', () => {
-      image.style.display = 'none';
-      $('.quest-card__media', card).style.background = 'linear-gradient(145deg, #2a241b, #100e0b)';
-    });
+    setThumbImage(
+      image,
+      quest.image,
+      useMobilePreview() ? thumbUrl(quest.image) : quest.image,
+      () => {
+        image.style.display = 'none';
+        $('.quest-card__media', card).style.background = 'linear-gradient(145deg, #2a241b, #100e0b)';
+      }
+    );
 
     $('.quest-card__cat', card).textContent = quest.category;
-    $('.quest-card__no', card).textContent = `${pad(index + 1)} / ${pad(list.length)}`;
+    $('.quest-card__no', card).textContent = `${pad(index + 1)} / ${pad(all.length)}`;
     $('.quest-card__title-row h3', card).textContent = quest.title;
     $('.quest-card__date', card).textContent = quest.date;
     $('.quest-card__place', card).textContent = quest.place;
@@ -1693,6 +1749,10 @@ function renderGallery() {
   });
 
   dom.gallery.append(fragment);
+  if (dom.galleryMore) {
+    dom.galleryMore.hidden = !mobile || list.length >= all.length;
+    dom.galleryMoreCount.textContent = `${list.length} / ${all.length}`;
+  }
   $$('.quest-card', dom.gallery).forEach(card => observeReveal(card));
   applyFilter(false);
   updateFilterCounts();
@@ -1796,8 +1856,14 @@ function setupFilters() {
     const next = button.dataset.filter;
     if (next === state.filter) return;
     state.filter = next;
+    state.galleryLimit = next === 'all' ? 12 : indexQuests().length;
     $$('.filter', dom.filters).forEach(item => item.classList.toggle('is-active', item === button));
-    applyFilter(true);
+    renderGallery();
+  });
+
+  dom.galleryMoreButton?.addEventListener('click', () => {
+    state.galleryLimit += 12;
+    renderGallery();
   });
 }
 
@@ -1894,6 +1960,9 @@ function renderRatingCard(quest) {
   dom.ratingAverage.textContent = rating.votes ? rating.avg.toFixed(1) : '—';
   dom.ratingCount.textContent = rating.votes.toLocaleString('zh-CN');
   dom.ratingBars.innerHTML = starsMarkup(rating.avg);
+  if (dom.mobileDetailScore) {
+    dom.mobileDetailScore.textContent = `★ ${rating.votes ? rating.avg.toFixed(1) : '—'} · ${rating.votes} 人评分`;
+  }
 
   if (rating.mine) {
     dom.ratingNote.innerHTML = `你给了 <strong>${rating.mine}</strong> 分 · ${RATING_LABELS[rating.mine - 1]}，谢谢你把这一刻看完。`;
@@ -2228,6 +2297,14 @@ function renderDetail(quest) {
     dom.flipBackFeeling.textContent = quest.feeling || '有些时刻来不及描述，只能先把它留下来。';
     dom.flipBackNote.textContent = CATEGORY_NOTES[quest.category] || CATEGORY_NOTES['校园'];
   }
+  if (dom.mobileDetailMeta) {
+    const average = rating.votes ? rating.avg.toFixed(1) : '—';
+    dom.mobileDetailMeta.textContent = `${quest.date} · ${quest.time || ''} · ${quest.place}`;
+    dom.mobileDetailScore.textContent = `★ ${average} · ${rating.votes} 人评分`;
+    dom.mobileDetailTitle.textContent = quest.title;
+    dom.mobileDetailFeeling.textContent = quest.feeling || '有些时刻来不及描述，只能先把它留下来。';
+    dom.mobileDetailNote.textContent = CATEGORY_NOTES[quest.category] || CATEGORY_NOTES['校园'];
+  }
   dom.detailMine.hidden = !quest.isUser || (quest.fromApi && !quest.is_owner);
   const ownerName = quest.fromApi ? quest.owner_username : null;
   dom.ownerAvatar.hidden = !ownerName;
@@ -2319,6 +2396,22 @@ function setDetailFlip(flipped) {
     dom.flipToggle.setAttribute('aria-pressed', String(state.detailFlipped));
   }
   if (state.detailFlipped) stopDetailMotion();
+  showFlipHint(state.detailFlipped ? '轻点图片，返回图片' : '轻点图片，翻到背面');
+}
+
+let flipHintTimer = 0;
+function showFlipHint(text) {
+  if (!useMobilePreview() || !dom.flipHint) return;
+  window.clearTimeout(flipHintTimer);
+  dom.flipHintText.textContent = text;
+  dom.flipHint.hidden = false;
+  requestAnimationFrame(() => dom.flipHint.classList.add('is-visible'));
+  flipHintTimer = window.setTimeout(() => {
+    dom.flipHint.classList.remove('is-visible');
+    window.setTimeout(() => {
+      if (!dom.flipHint.classList.contains('is-visible')) dom.flipHint.hidden = true;
+    }, 360);
+  }, 3200);
 }
 
 function renderAlbum(quest) {
@@ -2369,7 +2462,7 @@ function fitDetailFrame() {
   const mobile = window.matchMedia('(max-width: 860px)').matches;
   const availableWidth = Math.max(120, visual.clientWidth - padX);
   const availableHeight = mobile
-    ? Math.max(220, window.innerHeight * 0.62)
+    ? Math.max(220, window.innerHeight * 0.48)
     : Math.max(120, visual.clientHeight - padY);
   const ratio = naturalWidth / naturalHeight;
 
@@ -2411,6 +2504,7 @@ function setupFlipCard() {
     dom.flipBackContent.append(dom.ratingCard);
   }
   dom.flipToggle.addEventListener('click', () => setDetailFlip(!state.detailFlipped));
+  dom.flipHint.addEventListener('click', () => setDetailFlip(!state.detailFlipped));
   dom.detailImage.addEventListener('click', event => {
     event.stopPropagation();
     setDetailFlip(true);
@@ -2620,6 +2714,11 @@ function closeDetail(skipFocus = false) {
   clearPhotoFlight();
   detailOpen = false;
   state.activeId = null;
+  if (dom.flipHint) {
+    window.clearTimeout(flipHintTimer);
+    dom.flipHint.classList.remove('is-visible');
+    dom.flipHint.hidden = true;
+  }
   dom.detailLayer.classList.remove('is-open');
   dom.detailLayer.setAttribute('aria-hidden', 'true');
   if (!uploadOpen) dom.body.classList.remove('is-locked');

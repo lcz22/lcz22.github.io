@@ -78,6 +78,8 @@ class LocalImageStorage(ImageStorage):
         self.config = config
         self.directory = Path(config.upload_dir)
         self.directory.mkdir(parents=True, exist_ok=True)
+        self.thumbnail_directory = self.directory / "thumbs"
+        self.thumbnail_directory.mkdir(parents=True, exist_ok=True)
 
     async def save(self, upload_file) -> StoredImage:
         content_type = (upload_file.content_type or "").lower()
@@ -115,6 +117,18 @@ class LocalImageStorage(ImageStorage):
                     optimize=True,
                     progressive=True,
                 )
+                try:
+                    thumbnail = image.copy()
+                    thumbnail.thumbnail((640, 640), Image.Resampling.LANCZOS)
+                    thumbnail.save(
+                        self.thumbnail_directory / f"{Path(filename).stem}.jpg",
+                        format="JPEG",
+                        quality=76,
+                        optimize=True,
+                        progressive=True,
+                    )
+                except (OSError, ValueError):
+                    pass
         except (UnidentifiedImageError, Image.DecompressionBombError, OSError, ValueError) as exc:
             raise InvalidImageError("无法识别这张图片") from exc
 
@@ -228,6 +242,7 @@ class LocalImageStorage(ImageStorage):
         try:
             if path.resolve().parent == self.directory.resolve():
                 path.unlink(missing_ok=True)
+                (self.thumbnail_directory / f"{path.stem}.jpg").unlink(missing_ok=True)
         except OSError:
             pass
 

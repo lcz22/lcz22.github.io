@@ -8,7 +8,7 @@
   <title>杭电支线 · HDU SIDE QUESTS</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="assets/fonts/noto-serif-sc-subset.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261108-final9">
+  <link rel="stylesheet" href="styles.css?v=20261108-final10">
 </head>
 <body>
   <div class="grain" aria-hidden="true"></div>
@@ -187,6 +187,11 @@
 
         <div class="gallery" id="gallery" aria-live="polite"></div>
 
+        <div class="gallery-more" id="galleryMore" hidden>
+          <button class="btn-line" id="galleryMoreButton" type="button">继续往下看 <span>↓</span></button>
+          <span id="galleryMoreCount"></span>
+        </div>
+
         <div class="gallery-empty" id="galleryEmpty" hidden>
           <span class="gallery-empty__star" aria-hidden="true">✳</span>
           <h3>这一栏暂时还没有杭电日常。</h3>
@@ -358,7 +363,20 @@
             <button type="button" id="albumNext" aria-label="下一张图集照片">→</button>
           </div>
           <button class="flip-toggle" id="flipToggle" type="button">翻到背面 <span>↗</span></button>
+          <div class="flip-hint" id="flipHint" hidden>
+            <span id="flipHintText">轻点图片，翻到背面</span>
+          </div>
         </figure>
+
+        <div class="detail-mobile-info" id="detailMobileInfo">
+          <div class="detail-mobile-info__top">
+            <span id="mobileDetailMeta"></span>
+            <strong id="mobileDetailScore"></strong>
+          </div>
+          <h2 id="mobileDetailTitle"></h2>
+          <p class="detail-mobile-info__feeling" id="mobileDetailFeeling"></p>
+          <p class="detail-mobile-info__note" id="mobileDetailNote"></p>
+        </div>
 
         <div class="detail-content" id="detailContent">
           <div class="detail-scroll">
@@ -700,6 +718,6 @@
         : ''
     );
   </script>
-  <script src="app.js?v=20261108-final9"></script>
+  <script src="app.js?v=20261108-final10"></script>
 </body>
 </html>
