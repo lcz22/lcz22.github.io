@@ -119,7 +119,7 @@ class LocalImageStorage(ImageStorage):
                 )
                 try:
                     thumbnail = image.copy()
-                    thumbnail.thumbnail((640, 640), Image.Resampling.LANCZOS)
+                    thumbnail.thumbnail((480, 480), Image.Resampling.LANCZOS)
                     thumbnail.save(
                         self.thumbnail_directory / f"{Path(filename).stem}.jpg",
                         format="JPEG",

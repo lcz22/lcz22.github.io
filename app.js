@@ -1501,8 +1501,9 @@ function buildGrid() {
 
   dom.gridMotion.classList.remove('is-empty');
 
-  const rowCount = 4;
-  const groupSize = window.innerWidth < 700 ? 6 : 8;
+  const mobile = useMobilePreview();
+  const rowCount = mobile ? 3 : 4;
+  const groupSize = mobile ? 4 : (window.innerWidth < 700 ? 6 : 8);
 
   for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
     const row = document.createElement('div');
@@ -1510,7 +1511,7 @@ function buildGrid() {
 
     const track = document.createElement('div');
     track.className = 'gm-track';
-    track.style.setProperty('--gm-duration', `${78 + rowIndex * 13}s`);
+    track.style.setProperty('--gm-duration', `${(mobile ? 112 : 78) + rowIndex * 13}s`);
 
     for (let copy = 0; copy < 2; copy += 1) {
       const group = document.createElement('div');
@@ -1608,7 +1609,7 @@ function setupGridMotion() {
     }
 
     const now = performance.now();
-    if (!spotRaf && now - lastSpotTime > 70) {
+    if (!useMobilePreview() && !spotRaf && now - lastSpotTime > 70) {
       lastSpotTime = now;
       spotRaf = requestAnimationFrame(paintSpot);
     }
@@ -1648,6 +1649,21 @@ function setupGridMotion() {
     if (!tile) return;
     openDetail(tile.dataset.questId, $('img', tile), Number(tile.dataset.albumIndex) || 0);
   });
+
+  let heroVisible = true;
+  const syncAnimationState = () => {
+    dom.gridMotion.classList.toggle('is-paused', !heroVisible || document.hidden);
+  };
+  const updateHeroVisibility = () => {
+    const rect = dom.hero.getBoundingClientRect();
+    heroVisible = rect.bottom > 80 && rect.top < window.innerHeight - 80;
+    syncAnimationState();
+  };
+
+  window.addEventListener('scroll', updateHeroVisibility, { passive: true });
+  window.addEventListener('resize', updateHeroVisibility);
+  document.addEventListener('visibilitychange', syncAnimationState);
+  updateHeroVisibility();
 
   if (reduceMotion.addEventListener) {
     reduceMotion.addEventListener('change', resetSpot);
