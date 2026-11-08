@@ -16,3 +16,4 @@ backend/.test-tmp/
 backend/uploads/*
 !backend/uploads/.gitkeep
 tools/
+.logs/
